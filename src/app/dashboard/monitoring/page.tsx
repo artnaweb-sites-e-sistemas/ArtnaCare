@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Link2, Loader2, Info } from "lucide-react"
+import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Link2, Loader2, Info, RotateCw } from "lucide-react"
 import { getSites, type Site } from "@/lib/firebase/sites"
 import {
   Dialog,
@@ -37,6 +38,7 @@ type MonitoringLog = {
   responseTimeMs?: number;
   sslValid?: boolean;
   wpVersion?: string | null;
+  siteType?: string | null;
   checkedAt?: { seconds?: number; _seconds?: number; toDate?: () => Date } | string;
 };
 
@@ -103,6 +105,7 @@ export default function MonitoringPage() {
     responseTimeMs?: number | null
     sslValid?: boolean | null
     wpVersion?: string | null
+    siteType?: string | null
   }>>([])
   const [artnaSites, setArtnaSites] = useState<Site[]>([])
   const [syncing, setSyncing] = useState<string | null>(null)
@@ -113,6 +116,7 @@ export default function MonitoringPage() {
     message: string
     variant: "success" | "warning" | "error"
   }>({ open: false, title: "", message: "", variant: "success" })
+  const [singleSiteCheckingId, setSingleSiteCheckingId] = useState<string | null>(null)
 
   const loadMonitoringLogs = () => {
     setLogsLoading(true)
@@ -200,12 +204,39 @@ export default function MonitoringPage() {
     }
   }
 
+  const handleCheckSingleSite = async (siteId: string) => {
+    setSingleSiteCheckingId(siteId)
+    try {
+      const res = await fetch("/api/cron/monitoring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Check failed")
+      setLastRunResults(data.results || [])
+      loadMonitoringLogs()
+      setTimeout(loadMonitoringLogs, 2000)
+    } catch (error) {
+      console.error("Single site check error:", error)
+      setResultModal({
+        open: true,
+        title: "Falha ao verificar site",
+        message: "Não foi possível executar a verificação. Tente novamente.",
+        variant: "error",
+      })
+    } finally {
+      setSingleSiteCheckingId(null)
+    }
+  }
+
   const latestBySite = monitoringLogs.reduce<MonitoringLog[]>((acc, log) => {
-    if (!acc.some((l) => l.siteUrl === log.siteUrl)) acc.push(log)
+    const logUrlNorm = normalizeUrl(log.siteUrl)
+    if (!acc.some((l) => normalizeUrl(l.siteUrl) === logUrlNorm)) acc.push(log)
     return acc
   }, [])
 
-  const displayLogs: MonitoringLog[] =
+  let displayLogs: MonitoringLog[] =
     latestBySite.length > 0
       ? latestBySite
       : lastRunResults.map((r, i) => ({
@@ -217,8 +248,29 @@ export default function MonitoringPage() {
           responseTimeMs: r.responseTimeMs ?? undefined,
           sslValid: r.sslValid ?? undefined,
           wpVersion: r.wpVersion ?? undefined,
+          siteType: r.siteType ?? undefined,
           checkedAt: { seconds: Math.floor(Date.now() / 1000) },
         }))
+
+  // Após verificação individual, mesclar o resultado imediatamente (evita esperar o GET)
+  if (lastRunResults.length === 1 && !running && !singleSiteCheckingId) {
+    const r = lastRunResults[0]
+    const newLog: MonitoringLog = {
+      id: "single",
+      siteName: r.name,
+      siteUrl: r.url,
+      status: r.status,
+      issues: r.issues,
+      responseTimeMs: r.responseTimeMs ?? undefined,
+      sslValid: r.sslValid ?? undefined,
+      wpVersion: r.wpVersion ?? undefined,
+      siteType: r.siteType ?? undefined,
+      checkedAt: { seconds: Math.floor(Date.now() / 1000) },
+    }
+    const urlNorm = normalizeUrl(r.url)
+    displayLogs = displayLogs.filter((l) => normalizeUrl(l.siteUrl) !== urlNorm)
+    displayLogs = [newLog, ...displayLogs]
+  }
 
   const healthyCount = displayLogs.filter((l) => l.status === "Healthy").length
   const warningCount = displayLogs.filter((l) => l.status === "Warning").length
@@ -419,21 +471,22 @@ export default function MonitoringPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Tempo de resposta</TableHead>
                 <TableHead>SSL</TableHead>
-                <TableHead>Versão do WP</TableHead>
+                <TableHead>Tipo de site</TableHead>
                 <TableHead>Disponibilidade</TableHead>
                 <TableHead>Última checagem</TableHead>
+                <TableHead className="text-right w-12">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {logsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : logsError ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-amber-600">
+                  <TableCell colSpan={8} className="text-center py-8 text-amber-600">
                     {logsError} Configure FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY no .env.local.
                   </TableCell>
                 </TableRow>
@@ -449,10 +502,17 @@ export default function MonitoringPage() {
                   return (
                     <TableRow key={site.id}>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{site.name}</p>
-                          <p className="text-xs text-muted-foreground">{site.url}</p>
-                        </div>
+                        {site.id ? (
+                          <Link href={`/dashboard/sites/${site.id}`} className="block hover:opacity-80 transition-opacity">
+                            <p className="font-medium">{site.name}</p>
+                            <p className="text-xs text-muted-foreground">{site.url}</p>
+                          </Link>
+                        ) : (
+                          <div>
+                            <p className="font-medium">{site.name}</p>
+                            <p className="text-xs text-muted-foreground">{site.url}</p>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
@@ -535,7 +595,7 @@ export default function MonitoringPage() {
                       </TableCell>
                       <TableCell>{log?.responseTimeMs != null ? `${log.responseTimeMs} ms` : "—"}</TableCell>
                       <TableCell>{log?.sslValid === true ? "Válido" : log?.sslValid === false ? "Inválido" : "—"}</TableCell>
-                      <TableCell>{log?.wpVersion ?? "—"}</TableCell>
+                      <TableCell>{log?.siteType ?? "—"}</TableCell>
                       <TableCell>
                         {uptimeDisplayStatus !== null ? (
                           <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border ${statusColor(uptimeDisplayStatus)}`}>
@@ -575,12 +635,28 @@ export default function MonitoringPage() {
                           "—"
                         )}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => site.id && handleCheckSingleSite(site.id)}
+                          disabled={!!running || singleSiteCheckingId === site.id}
+                          aria-label="Verificar este site"
+                        >
+                          {singleSiteCheckingId === site.id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RotateCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   )
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhum site cadastrado. Adicione sites em Sites e clique em &ldquo;Executar todas as verificações&rdquo;.
                   </TableCell>
                 </TableRow>

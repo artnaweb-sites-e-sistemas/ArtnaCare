@@ -6,12 +6,23 @@ import { calculateStatus } from "@/lib/status-calculator";
 
 /**
  * POST /api/cron/monitoring
- * Runs monitoring checks on all registered sites and stores results.
+ * Runs monitoring checks on all registered sites (or a single site if siteId in body).
  * Uses Firebase Admin SDK (works on Vercel serverless without user auth).
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const sites = await getSitesAdmin();
+    let body: { siteId?: string } = {};
+    try {
+      body = await request.json().catch(() => ({}));
+    } catch {
+      // ignore
+    }
+    const siteId = body.siteId;
+
+    const allSites = await getSitesAdmin();
+    const sites = siteId
+      ? allSites.filter((s) => s.id === siteId)
+      : allSites;
 
     if (sites.length === 0) {
       return NextResponse.json({ message: "No sites to monitor", results: [] });
@@ -20,8 +31,44 @@ export async function POST() {
     const results = [];
 
     for (const site of sites) {
+      const siteUrl = typeof site.url === "string" ? site.url.trim() : "";
+      const siteType = site.type === "WordPress" || site.type === "Static" || site.type === "Other" ? site.type : "Other";
+
+      if (!siteUrl) {
+        const msg = "URL do site não informada. Edite o site e preencha a URL.";
+        console.error(`Site ${site.name} (${site.id}): ${msg}`);
+        try {
+          await updateSiteAdmin(site.id!, { status: "Error", issues: [msg] });
+          await addMonitoringLogAdmin({
+            siteId: site.id,
+            siteName: site.name,
+            siteUrl: site.url || "",
+            status: "Error",
+            issues: [msg],
+            httpOk: false,
+          });
+        } catch (e) {
+          console.error("Error updating site after missing URL:", e);
+        }
+        results.push({
+          siteId: site.id,
+          name: site.name,
+          url: site.url ?? "",
+          status: "Error",
+          issues: [msg],
+          responseTimeMs: null,
+          sslValid: null,
+          wpVersion: null,
+          siteType: null,
+        });
+        continue;
+      }
+
       try {
-        const monitoringResult = await runAllChecks(site.url, site.type);
+        const monitoringResult = await runAllChecks(siteUrl, siteType, {
+          wpUser: site.wpAdminUser,
+          wpApplicationPassword: site.wpAdminPassword,
+        });
         const statusResult = calculateStatus(monitoringResult);
 
         await updateSiteAdmin(site.id!, {
@@ -43,6 +90,7 @@ export async function POST() {
           sslValid: monitoringResult.sslValid,
           sslExpiryDays: monitoringResult.sslExpiryDays ?? undefined,
           wpVersion: monitoringResult.wpVersion ?? undefined,
+          siteType: monitoringResult.siteType ?? undefined,
           malwareDetected: monitoringResult.malwareDetected,
           performanceScore: monitoringResult.performanceScore ?? undefined,
         });
@@ -56,18 +104,38 @@ export async function POST() {
           responseTimeMs: monitoringResult.responseTimeMs ?? null,
           sslValid: monitoringResult.sslValid ?? null,
           wpVersion: monitoringResult.wpVersion ?? null,
+          siteType: monitoringResult.siteType ?? null,
         });
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const issues = [`Falha na verificação de monitoramento: ${errorMessage}`];
         console.error(`Error checking site ${site.name}:`, error);
+        try {
+          await updateSiteAdmin(site.id!, {
+            status: "Error",
+            issues,
+          });
+          await addMonitoringLogAdmin({
+            siteId: site.id,
+            siteName: site.name,
+            siteUrl: site.url,
+            status: "Error",
+            issues,
+            httpOk: false,
+          });
+        } catch (e) {
+          console.error("Error updating site after check failure:", e);
+        }
         results.push({
           siteId: site.id,
           name: site.name,
           url: site.url,
           status: "Error",
-          issues: ["Falha na verificação de monitoramento"],
+          issues,
           responseTimeMs: null,
           sslValid: null,
           wpVersion: null,
+          siteType: null,
         });
       }
     }

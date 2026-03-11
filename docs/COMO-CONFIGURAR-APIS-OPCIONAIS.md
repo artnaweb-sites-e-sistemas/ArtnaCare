@@ -46,6 +46,40 @@ Se no futuro o projeto usar alguma API **paga** ou **autenticada** da Sucuri (ex
 
 ---
 
+## WordPress (plugins e versão)
+
+Para o ArtnaCare **reconhecer o WordPress** e listar plugins (e, opcionalmente, plugins desatualizados), cada site do tipo WordPress pode ter **credenciais** cadastradas no próprio site (ao editar o site no menu Sites).
+
+**O que faz no projeto:**
+- Sem credenciais: o sistema só detecta se o site é WordPress (REST API pública) e mostra versão como "Detected".
+- Com credenciais: usa a **REST API do WordPress** com autenticação para ler a lista de plugins e a versão do WP. Se o site tiver um endpoint opcional (veja abaixo), também mostra **quantos plugins estão desatualizados**.
+
+**Como configurar no site (por site):**
+
+1. No WordPress (versão 5.6 ou superior), crie uma **Senha de aplicação** (Application Password):
+   - Acesse **Usuários → Perfil** (do usuário admin ou um usuário com permissão para gerenciar plugins).
+   - Role até **Senhas de aplicação**.
+   - Digite um nome (ex.: "ArtnaCare") e clique em **Adicionar nova senha de aplicação**.
+   - Copie a senha gerada (formato: `xxxx xxxx xxxx xxxx xxxx xxxx` — pode colar com ou sem espaços).
+
+2. No ArtnaCare, em **Sites**, edite o site WordPress e preencha:
+   - **URL do WP Admin**: ex. `https://seusite.com.br/wp-admin`
+   - **Usuário do WP Admin**: o **nome de usuário** do WordPress (não o e-mail).
+   - **Senha do WP Admin**: cole a **Senha de aplicação** gerada no passo 1 (não use a senha normal de login).
+
+3. Salve. Ao rodar **Executar todas as verificações** (ou a verificação individual do site), o ArtnaCare usará essa senha para chamar a API do WordPress e obter a lista de plugins e a versão do core.
+
+**Plugins desatualizados (opcional):**
+
+O número de **plugins desatualizados** só aparece se o site WordPress expuser um endpoint opcional. Duas opções:
+
+- **Opção A:** Usar o plugin em `docs/wordpress-plugin/artnacare-updates.php`: copie para `wp-content/plugins/artnacare-updates/` no WordPress e ative. Ele expõe `GET /wp-json/artnacare/v1/updates` retornando `{ "plugins_outdated": 5 }`. Use a mesma Senha de aplicação no ArtnaCare.
+- **Opção B:** Deixar sem esse endpoint: o ArtnaCare continua mostrando a lista de plugins e a versão do WP; o contador de desatualizados ficará em zero.
+
+**Resumo:** Para “relacionar” o site com o WordPress e reconhecer plugins, cadastre no site a **URL do admin**, o **usuário** e a **Senha de aplicação**. Para ver também **quantos plugins estão desatualizados**, é necessário um endpoint opcional no WordPress (ex.: plugin que devolva `plugins_outdated`).
+
+---
+
 ## Resumo
 
 | Variável              | Obrigatória? | Onde obter                          | Onde colocar        |
@@ -53,4 +87,4 @@ Se no futuro o projeto usar alguma API **paga** ou **autenticada** da Sucuri (ex
 | `UPTIMEROBOT_API_KEY` | Não         | UptimeRobot → My Settings → API Settings | `.env.local` e Vercel |
 | `SUCURI_API_KEY`      | Não         | Código atual não usa; deixe vazio  | Pode deixar vazio   |
 
-Só insira **UPTIMEROBOT_API_KEY** se você for usar monitores do UptimeRobot no app. **SUCURI_API_KEY** pode ficar em branco.
+Só insira **UPTIMEROBOT_API_KEY** se você for usar monitores do UptimeRobot no app. **SUCURI_API_KEY** pode ficar em branco. As credenciais do WordPress são configuradas **por site** ao editar o site no menu Sites.

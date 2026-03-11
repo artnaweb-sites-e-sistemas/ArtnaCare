@@ -20,6 +20,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+function normalizeDisplayUrl(url: string) {
+  const u = (url || "").trim()
+  if (!u) return ""
+  const withProtocol = /^https?:\/\//i.test(u) ? u : "https://" + u
+  return withProtocol.endsWith("/") ? withProtocol : withProtocol + "/"
+}
+
 export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,8 +122,8 @@ export default function SitesPage() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <a href={site.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-                        {site.url}
+                      <a href={normalizeDisplayUrl(site.url)} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+                        {normalizeDisplayUrl(site.url)}
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </TableCell>

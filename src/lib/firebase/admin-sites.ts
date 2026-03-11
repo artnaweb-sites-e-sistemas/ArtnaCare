@@ -14,14 +14,25 @@ export async function getSitesAdmin(): Promise<Site[]> {
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Site));
 }
 
+export async function getSiteAdmin(id: string): Promise<Site | null> {
+  const doc = await adminDb.collection(SITES_COLLECTION).doc(id).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() } as Site;
+}
+
+/** Remove chaves com valor undefined para não enviar ao Firestore (não aceita undefined). */
+function omitUndefined<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as Record<string, unknown>;
+}
+
 export async function updateSiteAdmin(
   id: string,
   data: Partial<Pick<Site, "status" | "issues" | "sslValid" | "responseTime" | "wpVersion">>
 ): Promise<void> {
-  await adminDb.collection(SITES_COLLECTION).doc(id).update({
-    ...data,
-    updatedAt: new Date(),
-  });
+  const payload = omitUndefined({ ...data, updatedAt: new Date() });
+  await adminDb.collection(SITES_COLLECTION).doc(id).update(payload);
 }
 
 export async function addMonitoringLogAdmin(log: {
@@ -35,6 +46,7 @@ export async function addMonitoringLogAdmin(log: {
   sslValid?: boolean | null;
   sslExpiryDays?: number | null;
   wpVersion?: string | null;
+  siteType?: string | null;
   malwareDetected?: boolean;
   performanceScore?: number | null;
 }): Promise<void> {
@@ -51,6 +63,7 @@ export async function addMonitoringLogAdmin(log: {
   if (log.sslValid !== undefined && log.sslValid !== null) data.sslValid = log.sslValid;
   if (log.sslExpiryDays !== undefined && log.sslExpiryDays !== null) data.sslExpiryDays = log.sslExpiryDays;
   if (log.wpVersion !== undefined && log.wpVersion !== null) data.wpVersion = log.wpVersion;
+  if (log.siteType !== undefined && log.siteType !== null && log.siteType !== "") data.siteType = log.siteType;
   if (log.malwareDetected !== undefined) data.malwareDetected = log.malwareDetected;
   if (log.performanceScore !== undefined && log.performanceScore !== null) data.performanceScore = log.performanceScore;
   await adminDb.collection(MONITORING_LOGS_COLLECTION).add(data);

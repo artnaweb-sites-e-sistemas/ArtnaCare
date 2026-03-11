@@ -43,6 +43,7 @@ export async function POST() {
           wpThemeOutdated: false,
           malwareDetected: false,
           performanceScore: Math.floor(Math.random() * 20) + 80, // 80-100
+          siteType: site.type === "WordPress" ? "WordPress" : "HTML",
         };
 
         const status = calculateStatus(mockMonitoringResult);

@@ -29,6 +29,26 @@ function formatDate(value: MaintenanceEntry["createdAt"]) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date)
 }
 
+type MonitoringLogEntry = {
+  id: string
+  siteId?: string
+  siteUrl?: string
+  status: string
+  issues?: string[]
+  checkedAt?: { seconds?: number; _seconds?: number }
+  responseTimeMs?: number
+  sslValid?: boolean
+  siteType?: string | null
+}
+
+function formatMonitoringCheckedAt(checkedAt: MonitoringLogEntry["checkedAt"]) {
+  if (!checkedAt) return "—"
+  const sec = (checkedAt as { seconds?: number }).seconds ?? (checkedAt as { _seconds?: number })._seconds
+  if (typeof sec !== "number") return "—"
+  const date = new Date(sec * 1000)
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date)
+}
+
 export default function SiteDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -47,8 +67,14 @@ export default function SiteDetailPage() {
     description: "",
     performedBy: user?.displayName || "",
   })
+  const [monitoringHistory, setMonitoringHistory] = useState<MonitoringLogEntry[]>([])
+  const [monitoringHistoryLoading, setMonitoringHistoryLoading] = useState(false)
+  const [monitoringHistoryVisible, setMonitoringHistoryVisible] = useState(5)
+  const [maintenanceLogsVisible, setMaintenanceLogsVisible] = useState(5)
 
   useEffect(() => {
+    setMonitoringHistoryVisible(5)
+    setMaintenanceLogsVisible(5)
     async function load() {
       try {
         const data = await getSite(siteId)
@@ -70,6 +96,29 @@ export default function SiteDetailPage() {
       .catch(console.error)
       .finally(() => setMaintenanceLoading(false))
   }, [siteId])
+
+  useEffect(() => {
+    if (!site?.id || !site?.url) return
+    setMonitoringHistoryLoading(true)
+    const siteId = site.id
+    const siteUrl = site.url
+    fetch("/api/cron/monitoring")
+      .then((res) => res.json())
+      .then((data: { logs?: MonitoringLogEntry[] }) => {
+        const logs = data.logs ?? []
+        const norm = (url: string) => {
+          const u = (url || "").trim().toLowerCase().replace(/\/$/, "")
+          return u.startsWith("http") ? u : `https://${u}`
+        }
+        const current = norm(siteUrl)
+        const forSite = logs.filter(
+          (log) => log.siteId === siteId || (log.siteUrl && norm(log.siteUrl) === current)
+        )
+        setMonitoringHistory(forSite)
+      })
+      .catch(console.error)
+      .finally(() => setMonitoringHistoryLoading(false))
+  }, [site?.id, site?.url])
 
   useEffect(() => {
     setMaintenanceForm((prev) => ({ ...prev, performedBy: user?.displayName || prev.performedBy }))
@@ -226,64 +275,43 @@ export default function SiteDetailPage() {
 
       {/* Monitoring Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Tipo</p>
-                <p className="text-sm font-medium">{site.type}</p>
-              </div>
+        <Card className="flex flex-col">
+          <CardContent className="py-4 px-4 flex items-center justify-start gap-2">
+            <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Tipo</p>
+              <p className="text-sm font-medium">{site.type}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">SSL</p>
-                <p className="text-sm font-medium">{site.sslValid === true ? "Válido" : site.sslValid === false ? "Inválido" : "Não verificado"}</p>
-              </div>
+        <Card className="flex flex-col">
+          <CardContent className="py-4 px-4 flex items-center justify-start gap-2">
+            <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">SSL</p>
+              <p className="text-sm font-medium">{site.sslValid === true ? "Válido" : site.sslValid === false ? "Inválido" : "Não verificado"}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Tempo de resposta</p>
-                <p className="text-sm font-medium">{site.responseTime ? `${site.responseTime}ms` : "—"}</p>
-              </div>
+        <Card className="flex flex-col">
+          <CardContent className="py-4 px-4 flex items-center justify-start gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Tempo de resposta</p>
+              <p className="text-sm font-medium">{site.responseTime ? `${site.responseTime}ms` : "—"}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Versão do WP</p>
-                <p className="text-sm font-medium">{site.wpVersion || "—"}</p>
-              </div>
+        <Card className="flex flex-col">
+          <CardContent className="py-4 px-4 flex items-center justify-start gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Versão do WP</p>
+              <p className="text-sm font-medium">{site.wpVersion || "—"}</p>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Monitoring History placeholder */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico de monitoramento</CardTitle>
-          <CardDescription>Resultados e tendências de desempenho para este site.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-6">
-            O histórico de monitoramento aparecerá aqui após a execução das verificações.
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Maintenance Log */}
       <Card>
@@ -305,22 +333,116 @@ export default function SiteDetailPage() {
               Ainda não há registros de manutenção.
             </p>
           ) : (
-            <ul className="space-y-3">
-              {maintenanceLogs.map((entry) => (
-                <li
-                  key={entry.id}
-                  className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-3 text-sm"
+            <>
+              <ul className="space-y-3">
+                {maintenanceLogs.slice(0, maintenanceLogsVisible).map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{MAINTENANCE_TYPES.find((t) => t.value === entry.type)?.label ?? entry.type}</span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-muted-foreground">{entry.performedBy}</span>
+                      <span className="text-muted-foreground text-xs ml-auto">{formatDate(entry.createdAt)}</span>
+                    </div>
+                    <p className="text-muted-foreground">{entry.description}</p>
+                  </li>
+                ))}
+              </ul>
+              {maintenanceLogsVisible < maintenanceLogs.length && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => setMaintenanceLogsVisible((v) => v + 5)}
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{MAINTENANCE_TYPES.find((t) => t.value === entry.type)?.label ?? entry.type}</span>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="text-muted-foreground">{entry.performedBy}</span>
-                    <span className="text-muted-foreground text-xs ml-auto">{formatDate(entry.createdAt)}</span>
-                  </div>
-                  <p className="text-muted-foreground">{entry.description}</p>
-                </li>
-              ))}
-            </ul>
+                  Ver mais
+                </Button>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Monitoring History */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Histórico de monitoramento</CardTitle>
+          <CardDescription>Resultados e tendências de desempenho para este site.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {monitoringHistoryLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Carregando histórico...</p>
+          ) : monitoringHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              O histórico de monitoramento aparecerá aqui após a execução das verificações em Monitoramento.
+            </p>
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {monitoringHistory.slice(0, monitoringHistoryVisible).map((log) => (
+                  <li
+                    key={log.id}
+                    className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
+                          log.status === "Healthy"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : log.status === "Warning"
+                              ? "bg-amber-100 text-amber-800"
+                              : log.status === "Critical" || log.status === "Error"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-slate-100 text-slate-800"
+                        }`}
+                      >
+                        {log.status === "Healthy"
+                          ? "Saudável"
+                          : log.status === "Warning"
+                            ? "Aviso"
+                            : log.status === "Critical"
+                              ? "Crítico"
+                              : log.status === "Error"
+                                ? "Erro"
+                                : log.status}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {formatMonitoringCheckedAt(log.checkedAt)}
+                      </span>
+                      {log.responseTimeMs != null && (
+                        <span className="text-muted-foreground text-xs">
+                          {log.responseTimeMs} ms
+                        </span>
+                      )}
+                      {log.sslValid !== undefined && (
+                        <span className="text-muted-foreground text-xs">
+                          SSL: {log.sslValid ? "Válido" : "Inválido"}
+                        </span>
+                      )}
+                    </div>
+                    {log.issues && log.issues.length > 0 && (
+                      <ul className="text-muted-foreground text-xs list-disc list-inside">
+                        {log.issues.slice(0, 5).map((issue, i) => (
+                          <li key={i}>{issue}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {monitoringHistoryVisible < monitoringHistory.length && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => setMonitoringHistoryVisible((v) => v + 5)}
+                >
+                  Ver mais
+                </Button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

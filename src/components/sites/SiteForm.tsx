@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { createSite, updateSite, Site } from "@/lib/firebase/sites"
 import { getClients, Client } from "@/lib/firebase/firestore"
+import { Info, Download } from "lucide-react"
 
 interface SiteFormProps {
   site?: Site
@@ -51,6 +53,14 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
     }
   }, [defaultClientId, clients, isEditing])
 
+  /** Garante que a URL tenha https:// e termine com / */
+  const normalizeSiteUrl = (url: string) => {
+    const u = (url || "").trim()
+    if (!u) return ""
+    const withProtocol = /^https?:\/\//i.test(u) ? u : "https://" + u
+    return withProtocol.endsWith("/") ? withProtocol : withProtocol + "/"
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     if (name === "clientId") {
@@ -69,9 +79,10 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
     setLoading(true)
     try {
       if (isEditing && site?.id) {
+        const url = normalizeSiteUrl(formData.url)
         await updateSite(site.id, {
           name: formData.name,
-          url: formData.url,
+          url,
           clientId: formData.clientId.trim(),
           clientName: formData.clientName,
           type: formData.type,
@@ -82,9 +93,10 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
         })
         router.push(`/dashboard/sites/${site.id}`)
       } else {
+        const url = normalizeSiteUrl(formData.url)
         const newId = await createSite({
           name: formData.name,
-          url: formData.url,
+          url,
           clientId: formData.clientId.trim(),
           clientName: formData.clientName,
           type: formData.type,
@@ -99,7 +111,7 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
           const res = await fetch("/api/integrations/uptimerobot/create", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: formData.name, url: formData.url }),
+            body: JSON.stringify({ name: formData.name, url }),
           })
           const data = await res.json()
           if (data.monitorId) {
@@ -177,18 +189,57 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
           {formData.type === "WordPress" && (
             <div className="border rounded-md p-4 space-y-4">
               <p className="text-sm font-medium">Credenciais do WordPress (opcional)</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a href="/api/download/wordpress-plugin" download="artnacare-updates.zip">
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar plugin
+                  </a>
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Como obter a senha de aplicação"
+                    >
+                      <Info className="h-4 w-4" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 text-sm" align="start">
+                    <p className="font-medium mb-2">Como obter a Senha de aplicação</p>
+                    <p className="text-muted-foreground mb-2">Não use a senha de login. Crie uma senha especial:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                      <li>No WordPress: Usuários → Perfil</li>
+                      <li>Role até &quot;Senhas de aplicação&quot;</li>
+                      <li>Digite um nome (ex: ArtnaCare) e clique em &quot;Adicionar nova senha de aplicação&quot;</li>
+                      <li>Copie a senha gerada (formato: xxxx xxxx xxxx...)</li>
+                      <li>Cole aqui no campo abaixo</li>
+                    </ol>
+                    <p className="text-xs text-muted-foreground mt-2">A conta precisa ser Administrador.</p>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="wpAdminUrl">URL do WP Admin</Label>
                   <Input id="wpAdminUrl" name="wpAdminUrl" value={formData.wpAdminUrl} onChange={handleChange} placeholder="https://exemplo.com/wp-admin" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="wpAdminUser">Usuário do WP Admin</Label>
+                  <Label htmlFor="wpAdminUser">Usuário (nome de login)</Label>
                   <Input id="wpAdminUser" name="wpAdminUser" value={formData.wpAdminUser} onChange={handleChange} placeholder="admin" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="wpAdminPassword">Senha do WP Admin</Label>
-                  <Input id="wpAdminPassword" name="wpAdminPassword" type="password" value={formData.wpAdminPassword} onChange={handleChange} placeholder="••••••••" />
+                  <Label htmlFor="wpAdminPassword">Senha de aplicação</Label>
+                  <Input
+                    id="wpAdminPassword"
+                    name="wpAdminPassword"
+                    type="password"
+                    value={formData.wpAdminPassword}
+                    onChange={handleChange}
+                    placeholder="Cole a senha gerada no WordPress (não a senha de login)"
+                  />
                 </div>
               </div>
             </div>

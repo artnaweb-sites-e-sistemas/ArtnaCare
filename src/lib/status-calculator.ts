@@ -13,6 +13,8 @@ export interface MonitoringResult {
   wpThemeOutdated: boolean;
   malwareDetected: boolean;
   performanceScore: number | null; // 0-100
+  /** Tipo de site detectado: WordPress, Next.js, React, PHP, HTML, Desconhecido */
+  siteType: string;
 }
 
 export type SiteStatus = "Healthy" | "Warning" | "Critical" | "Unknown";
