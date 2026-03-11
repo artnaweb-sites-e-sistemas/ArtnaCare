@@ -14,10 +14,52 @@ type UptimeMonitor = {
   all_time_uptime_ratio?: string;
 };
 
+type MonitoringLog = {
+  id: string;
+  siteName: string;
+  siteUrl: string;
+  status: string;
+  responseTimeMs?: number;
+  sslValid?: boolean;
+  wpVersion?: string | null;
+  checkedAt?: { seconds?: number; toDate?: () => Date } | string;
+};
+
+function formatCheckedAt(checkedAt: MonitoringLog["checkedAt"]): string {
+  if (!checkedAt) return "—"
+  try {
+    const date = typeof checkedAt === "object" && checkedAt !== null && "toDate" in checkedAt
+      ? (checkedAt as { toDate: () => Date }).toDate()
+      : typeof checkedAt === "object" && checkedAt !== null && "seconds" in checkedAt
+        ? new Date((checkedAt as { seconds: number }).seconds * 1000)
+        : new Date(String(checkedAt))
+    return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date)
+  } catch {
+    return "—"
+  }
+}
+
 export default function MonitoringPage() {
   const [running, setRunning] = useState(false)
   const [uptimeMonitors, setUptimeMonitors] = useState<UptimeMonitor[]>([])
   const [uptimeError, setUptimeError] = useState<string | null>(null)
+  const [monitoringLogs, setMonitoringLogs] = useState<MonitoringLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(true)
+
+  const loadMonitoringLogs = () => {
+    setLogsLoading(true)
+    fetch("/api/cron/monitoring")
+      .then((res) => res.json())
+      .then((data) => {
+        setMonitoringLogs(data.logs || [])
+      })
+      .catch(() => setMonitoringLogs([]))
+      .finally(() => setLogsLoading(false))
+  }
+
+  useEffect(() => {
+    loadMonitoringLogs()
+  }, [])
 
   useEffect(() => {
     fetch("/api/integrations/uptimerobot")
@@ -34,7 +76,8 @@ export default function MonitoringPage() {
     try {
       const res = await fetch("/api/cron/monitoring", { method: "POST" })
       if (!res.ok) throw new Error("Check failed")
-      alert("Verificações concluídas!")
+      alert("Verificações concluídas! Os sites cadastrados na ArtnaCare foram verificados.")
+      loadMonitoringLogs()
     } catch (error) {
       console.error("Monitoring error:", error)
       alert("Falha ao executar verificações. Verifique se o endpoint está configurado.")
@@ -42,6 +85,16 @@ export default function MonitoringPage() {
       setRunning(false)
     }
   }
+
+  const latestBySite = monitoringLogs.reduce<MonitoringLog[]>((acc, log) => {
+    if (!acc.some((l) => l.siteUrl === log.siteUrl)) acc.push(log)
+    return acc
+  }, [])
+
+  const healthyCount = latestBySite.filter((l) => l.status === "Healthy").length
+  const warningCount = latestBySite.filter((l) => l.status === "Warning").length
+  const criticalCount = latestBySite.filter((l) => l.status === "Critical").length
+  const lastCheck = monitoringLogs[0] ? formatCheckedAt(monitoringLogs[0].checkedAt) : "—"
 
   const statusLabel = (status: number) => {
     switch (status) {
@@ -82,13 +135,13 @@ export default function MonitoringPage() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - baseados nos sites cadastrados na ArtnaCare */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-3">
             <CheckCircle className="h-8 w-8 text-green-500" />
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{logsLoading ? "—" : healthyCount}</p>
               <p className="text-xs text-muted-foreground">Saudáveis</p>
             </div>
           </CardContent>
@@ -97,7 +150,7 @@ export default function MonitoringPage() {
           <CardContent className="pt-6 flex items-center gap-3">
             <AlertTriangle className="h-8 w-8 text-yellow-500" />
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{logsLoading ? "—" : warningCount}</p>
               <p className="text-xs text-muted-foreground">Avisos</p>
             </div>
           </CardContent>
@@ -106,7 +159,7 @@ export default function MonitoringPage() {
           <CardContent className="pt-6 flex items-center gap-3">
             <XCircle className="h-8 w-8 text-red-500" />
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{logsLoading ? "—" : criticalCount}</p>
               <p className="text-xs text-muted-foreground">Críticos</p>
             </div>
           </CardContent>
@@ -115,18 +168,20 @@ export default function MonitoringPage() {
           <CardContent className="pt-6 flex items-center gap-3">
             <Clock className="h-8 w-8 text-muted-foreground" />
             <div>
-              <p className="text-2xl font-bold">—</p>
+              <p className="text-2xl font-bold">{logsLoading ? "—" : lastCheck}</p>
               <p className="text-xs text-muted-foreground">Última verificação</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Check Results Table */}
+      {/* Resultados dos sites cadastrados na ArtnaCare */}
       <Card>
         <CardHeader>
           <CardTitle>Resultados mais recentes</CardTitle>
-          <CardDescription>Resultados da execução de monitoramento mais recente.</CardDescription>
+          <CardDescription>
+            Sites cadastrados na ArtnaCare (menu Sites). Execute as verificações para atualizar.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -141,11 +196,55 @@ export default function MonitoringPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Ainda não há dados de monitoramento. Clique em &ldquo;Executar todas as verificações&rdquo; para iniciar o monitoramento.
-                </TableCell>
-              </TableRow>
+              {logsLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Carregando…
+                  </TableCell>
+                </TableRow>
+              ) : latestBySite.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Nenhum resultado ainda. Clique em &ldquo;Executar todas as verificações&rdquo; para monitorar os sites cadastrados em Sites.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                latestBySite.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{log.siteName}</p>
+                        <p className="text-xs text-muted-foreground">{log.siteUrl}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          log.status === "Healthy"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : log.status === "Warning"
+                              ? "bg-amber-100 text-amber-800"
+                              : log.status === "Critical"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-slate-100 text-slate-800"
+                        }`}
+                      >
+                        {log.status === "Healthy"
+                          ? "Saudável"
+                          : log.status === "Warning"
+                            ? "Aviso"
+                            : log.status === "Critical"
+                              ? "Crítico"
+                              : log.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{log.responseTimeMs != null ? `${log.responseTimeMs} ms` : "—"}</TableCell>
+                    <TableCell>{log.sslValid === true ? "Válido" : log.sslValid === false ? "Inválido" : "—"}</TableCell>
+                    <TableCell>{log.wpVersion ?? "—"}</TableCell>
+                    <TableCell>{formatCheckedAt(log.checkedAt)}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
