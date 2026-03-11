@@ -15,7 +15,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="h-5 w-5" />
         </Button>
         <div className="text-lg font-semibold text-slate-800 hidden sm:block">
-          Welcome back{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}
+          Bem-vindo de volta{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}
         </div>
       </div>
       <div className="flex items-center space-x-2 md:space-x-4">

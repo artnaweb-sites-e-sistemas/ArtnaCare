@@ -10,12 +10,12 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Reports</h2>
-          <p className="text-muted-foreground">Generate and send monthly maintenance reports to clients.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Relatórios</h2>
+          <p className="text-muted-foreground">Gere e envie relatórios mensais de manutenção para os clientes.</p>
         </div>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
-          Generate Report
+          Gerar relatório
         </Button>
       </div>
 
@@ -26,7 +26,7 @@ export default function ReportsPage() {
             <FileText className="h-8 w-8 text-blue-500" />
             <div>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Reports Generated</p>
+              <p className="text-xs text-muted-foreground">Relatórios gerados</p>
             </div>
           </CardContent>
         </Card>
@@ -35,7 +35,7 @@ export default function ReportsPage() {
             <Send className="h-8 w-8 text-green-500" />
             <div>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Reports Sent</p>
+              <p className="text-xs text-muted-foreground">Relatórios enviados</p>
             </div>
           </CardContent>
         </Card>
@@ -44,7 +44,7 @@ export default function ReportsPage() {
             <Download className="h-8 w-8 text-muted-foreground" />
             <div>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">PDF Downloads</p>
+              <p className="text-xs text-muted-foreground">Downloads de PDF</p>
             </div>
           </CardContent>
         </Card>
@@ -53,25 +53,25 @@ export default function ReportsPage() {
       {/* Reports Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Report History</CardTitle>
-          <CardDescription>All generated reports with download and delivery status.</CardDescription>
+          <CardTitle>Histórico de relatórios</CardTitle>
+          <CardDescription>Todos os relatórios gerados com status de envio e download.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Report</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Period</TableHead>
+                <TableHead>Relatório</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Período</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Generated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Gerado em</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No reports generated yet. Click &ldquo;Generate Report&rdquo; to create your first monthly report.
+                  Nenhum relatório gerado ainda. Clique em &ldquo;Gerar relatório&rdquo; para criar o primeiro relatório mensal.
                 </TableCell>
               </TableRow>
             </TableBody>

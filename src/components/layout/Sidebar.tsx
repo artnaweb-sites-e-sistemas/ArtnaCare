@@ -7,10 +7,10 @@ import { Home, Users, Globe, Activity, FileText, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/dashboard/clients", label: "Clients", icon: Users },
+  { href: "/dashboard/clients", label: "Clientes", icon: Users },
   { href: "/dashboard/sites", label: "Sites", icon: Globe },
-  { href: "/dashboard/monitoring", label: "Monitoring", icon: Activity },
-  { href: "/dashboard/reports", label: "Reports", icon: FileText },
+  { href: "/dashboard/monitoring", label: "Monitoramento", icon: Activity },
+  { href: "/dashboard/reports", label: "Relatórios", icon: FileText },
 ];
 
 

@@ -10,12 +10,12 @@ export default function NewClientPage() {
         <Button variant="outline" size="icon" asChild>
           <Link href="/dashboard/clients">
             <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Back to Clients</span>
+            <span className="sr-only">Voltar para clientes</span>
           </Link>
         </Button>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Add New Client</h2>
-          <p className="text-muted-foreground">Create a new customer account to manage their sites.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Adicionar novo cliente</h2>
+          <p className="text-muted-foreground">Crie uma nova conta de cliente para gerenciar seus sites.</p>
         </div>
       </div>
 

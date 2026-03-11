@@ -20,7 +20,6 @@ export default function ClientForm({ client, isEditing = false }: ClientFormProp
     name: client?.name || "",
     email: client?.email || "",
     phone: client?.phone || "",
-    address: client?.address || "",
     status: client?.status || "Active" as "Active" | "Inactive",
   })
 
@@ -50,27 +49,27 @@ export default function ClientForm({ client, isEditing = false }: ClientFormProp
   return (
     <Card className="max-w-2xl">
       <CardHeader>
-        <CardTitle>{isEditing ? "Edit Client" : "New Client"}</CardTitle>
+        <CardTitle>{isEditing ? "Editar cliente" : "Novo cliente"}</CardTitle>
         <CardDescription>
-          {isEditing ? "Update client information." : "Add a new client to ArtnaCare."}
+          {isEditing ? "Atualize as informações do cliente." : "Adicione um novo cliente à ArtnaCare."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Company Name</Label>
+              <Label htmlFor="name">Nome do cliente</Label>
               <Input
                 id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="Acme Corp"
+                placeholder="João Silva"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">E-mail</Label>
               <Input
                 id="email"
                 name="email"
@@ -82,7 +81,7 @@ export default function ClientForm({ client, isEditing = false }: ClientFormProp
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Telefone</Label>
               <Input
                 id="phone"
                 name="phone"
@@ -100,28 +99,17 @@ export default function ClientForm({ client, isEditing = false }: ClientFormProp
                 onChange={handleChange}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
+                <option value="Active">Ativo</option>
+                <option value="Inactive">Inativo</option>
               </select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Input
-              id="address"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="123 Main St, São Paulo, SP"
-            />
-          </div>
-
           <div className="flex gap-3 pt-4">
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : isEditing ? "Update Client" : "Create Client"}
+              {loading ? "Salvando..." : isEditing ? "Atualizar cliente" : "Criar cliente"}
             </Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>
-              Cancel
+              Cancelar
             </Button>
           </div>
         </form>

@@ -24,9 +24,10 @@ export default function DashboardLayout({
     );
   }
 
-  // If not logged in and not loading, redirect to login
+  // Se não estiver logado e não estiver carregando, redireciona para login
   if (!user) {
-    router.push("/login");
+    // Evita navegar durante o render
+    void router.push("/login");
     return null;
   }
 

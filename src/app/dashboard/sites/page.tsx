@@ -40,44 +40,44 @@ export default function SitesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Sites</h2>
-          <p className="text-muted-foreground">Monitor and manage all WordPress sites.</p>
+          <p className="text-muted-foreground">Monitore e gerencie todos os sites WordPress.</p>
         </div>
         <Button asChild>
           <Link href="/dashboard/sites/new">
             <Plus className="mr-2 h-4 w-4" />
-            Add Site
+            Adicionar site
           </Link>
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Sites</CardTitle>
-          <CardDescription>Overview of all sites monitored by ArtnaCare.</CardDescription>
+          <CardTitle>Todos os sites</CardTitle>
+          <CardDescription>Visão geral de todos os sites monitorados pela ArtnaCare.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Site Name</TableHead>
+                <TableHead>Nome do site</TableHead>
                 <TableHead>URL</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    Loading sites...
+                    Carregando sites...
                   </TableCell>
                 </TableRow>
               ) : sites.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    No sites found.
+                    Nenhum site encontrado.
                   </TableCell>
                 </TableRow>
               ) : (

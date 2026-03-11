@@ -49,13 +49,14 @@ export async function getSites(): Promise<Site[]> {
 
 export async function getSitesByClient(clientId: string): Promise<Site[]> {
   const sitesRef = collection(db, SITES_COLLECTION);
-  const q = query(sitesRef, where("clientId", "==", clientId), orderBy("name", "asc"));
+  const q = query(sitesRef, where("clientId", "==", clientId));
   const querySnapshot = await getDocs(q);
 
-  return querySnapshot.docs.map(doc => ({
+  const sites = querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   } as Site));
+  return sites.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getSite(id: string): Promise<Site | null> {

@@ -27,19 +27,19 @@ export default function MonitoringPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Monitoring</h2>
-          <p className="text-muted-foreground">Run health checks and view monitoring status across all sites.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Monitoramento</h2>
+          <p className="text-muted-foreground">Execute verificações de saúde e visualize o status de monitoramento de todos os sites.</p>
         </div>
         <Button onClick={handleRunChecks} disabled={running}>
           {running ? (
             <>
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Running…
+              Executando…
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Run All Checks
+              Executar todas as verificações
             </>
           )}
         </Button>
@@ -52,7 +52,7 @@ export default function MonitoringPage() {
             <CheckCircle className="h-8 w-8 text-green-500" />
             <div>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Healthy</p>
+              <p className="text-xs text-muted-foreground">Saudáveis</p>
             </div>
           </CardContent>
         </Card>
@@ -61,7 +61,7 @@ export default function MonitoringPage() {
             <AlertTriangle className="h-8 w-8 text-yellow-500" />
             <div>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Warnings</p>
+              <p className="text-xs text-muted-foreground">Avisos</p>
             </div>
           </CardContent>
         </Card>
@@ -70,7 +70,7 @@ export default function MonitoringPage() {
             <XCircle className="h-8 w-8 text-red-500" />
             <div>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Critical</p>
+              <p className="text-xs text-muted-foreground">Críticos</p>
             </div>
           </CardContent>
         </Card>
@@ -79,7 +79,7 @@ export default function MonitoringPage() {
             <Clock className="h-8 w-8 text-muted-foreground" />
             <div>
               <p className="text-2xl font-bold">—</p>
-              <p className="text-xs text-muted-foreground">Last Check</p>
+              <p className="text-xs text-muted-foreground">Última verificação</p>
             </div>
           </CardContent>
         </Card>
@@ -88,8 +88,8 @@ export default function MonitoringPage() {
       {/* Check Results Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Latest Check Results</CardTitle>
-          <CardDescription>Results from the most recent monitoring run.</CardDescription>
+          <CardTitle>Resultados mais recentes</CardTitle>
+          <CardDescription>Resultados da execução de monitoramento mais recente.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -97,16 +97,16 @@ export default function MonitoringPage() {
               <TableRow>
                 <TableHead>Site</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Response Time</TableHead>
+                <TableHead>Tempo de resposta</TableHead>
                 <TableHead>SSL</TableHead>
-                <TableHead>WP Version</TableHead>
-                <TableHead>Last Checked</TableHead>
+                <TableHead>Versão do WP</TableHead>
+                <TableHead>Última checagem</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No monitoring data yet. Click &ldquo;Run All Checks&rdquo; to start monitoring.
+                  Ainda não há dados de monitoramento. Clique em &ldquo;Executar todas as verificações&rdquo; para iniciar o monitoramento.
                 </TableCell>
               </TableRow>
             </TableBody>

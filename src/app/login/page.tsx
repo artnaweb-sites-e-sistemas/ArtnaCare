@@ -26,7 +26,7 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Failed to log in");
+      setError(err.message || "Falha ao fazer login");
     } finally {
       setLoading(false);
     }
@@ -36,15 +36,15 @@ export default function LoginPage() {
     <div className="flex h-screen w-full items-center justify-center bg-slate-50 p-4 font-sans">
       <Card className="w-full max-w-md shadow-lg border-0">
         <CardHeader className="space-y-1 pb-6">
-          <CardTitle className="text-2xl font-bold text-center text-slate-800">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center text-slate-800">Bem-vindo de volta</CardTitle>
           <CardDescription className="text-center text-slate-500">
-            Sign in to the ArtnaCare admin portal
+            Faça login no portal admin ArtnaCare
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="font-semibold text-slate-700">Email</Label>
+              <Label htmlFor="email" className="font-semibold text-slate-700">E-mail</Label>
               <Input 
                 id="email" 
                 type="email" 
@@ -56,7 +56,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="font-semibold text-slate-700">Password</Label>
+              <Label htmlFor="password" className="font-semibold text-slate-700">Senha</Label>
               <Input 
                 id="password" 
                 type="password" 
@@ -72,7 +72,7 @@ export default function LoginPage() {
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-5 mt-2 transition-all" 
               disabled={loading}
             >
-              {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Sign in"}
+              {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Entrar"}
             </Button>
           </form>
         </CardContent>
