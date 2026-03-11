@@ -26,6 +26,7 @@ export async function POST() {
 
         await updateSiteAdmin(site.id!, {
           status: statusResult.status,
+          issues: statusResult.issues,
           sslValid: monitoringResult.sslValid ?? undefined,
           responseTime: monitoringResult.responseTimeMs ?? undefined,
           wpVersion: monitoringResult.wpVersion ?? undefined,
@@ -49,18 +50,24 @@ export async function POST() {
         results.push({
           siteId: site.id,
           name: site.name,
+          url: site.url,
           status: statusResult.status,
           issues: statusResult.issues,
-          responseTimeMs: monitoringResult.responseTimeMs,
+          responseTimeMs: monitoringResult.responseTimeMs ?? null,
+          sslValid: monitoringResult.sslValid ?? null,
+          wpVersion: monitoringResult.wpVersion ?? null,
         });
       } catch (error) {
         console.error(`Error checking site ${site.name}:`, error);
         results.push({
           siteId: site.id,
           name: site.name,
+          url: site.url,
           status: "Error",
-          issues: ["Monitoring check failed"],
+          issues: ["Falha na verificação de monitoramento"],
           responseTimeMs: null,
+          sslValid: null,
+          wpVersion: null,
         });
       }
     }
@@ -90,10 +97,22 @@ export async function GET() {
       .limit(100)
       .get();
 
-    const logs = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const logs = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const checkedAt = data.checkedAt;
+      let serializedCheckedAt = checkedAt;
+      if (checkedAt && typeof checkedAt === "object") {
+        const sec = (checkedAt as { seconds?: number }).seconds ?? (checkedAt as { _seconds?: number })._seconds;
+        if (typeof sec === "number") {
+          serializedCheckedAt = { seconds: sec };
+        }
+      }
+      return {
+        id: doc.id,
+        ...data,
+        checkedAt: serializedCheckedAt,
+      };
+    });
 
     return NextResponse.json({ logs });
   } catch (error) {

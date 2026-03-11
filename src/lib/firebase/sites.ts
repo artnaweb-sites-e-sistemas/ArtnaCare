@@ -22,6 +22,7 @@ export interface Site {
   clientName?: string;
   type: "WordPress" | "Static" | "Other";
   status: "Healthy" | "Warning" | "Critical" | "Unknown";
+  issues?: string[];
   sslValid?: boolean;
   responseTime?: number;
   lastCheck?: Timestamp | Date | null;

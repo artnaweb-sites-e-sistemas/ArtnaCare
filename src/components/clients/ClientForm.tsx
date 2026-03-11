@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { createClient, updateClient, Client } from "@/lib/firebase/firestore"
+import { formatPhoneInputLive, maskPhoneInput, normalizePhoneForStore } from "@/lib/phone"
 
 interface ClientFormProps {
   client?: Client
@@ -19,12 +20,18 @@ export default function ClientForm({ client, isEditing = false }: ClientFormProp
   const [formData, setFormData] = useState({
     name: client?.name || "",
     email: client?.email || "",
-    phone: client?.phone || "",
+    phone: (typeof client?.phone === "string" ? client.phone.replace(/\D/g, "") : "") || "",
     status: client?.status || "Active" as "Active" | "Inactive",
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = maskPhoneInput(e.target.value)
+    const normalized = normalizePhoneForStore(raw)
+    setFormData(prev => ({ ...prev, phone: normalized }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,13 +88,13 @@ export default function ClientForm({ client, isEditing = false }: ClientFormProp
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
+              <Label htmlFor="phone">WhatsApp</Label>
               <Input
                 id="phone"
                 name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="+55 11 99999-9999"
+                value={formatPhoneInputLive(formData.phone)}
+                onChange={handlePhoneChange}
+                placeholder="+55 (11) 99999-9999"
               />
             </div>
             <div className="space-y-2">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Globe, Activity, AlertTriangle, Blocks } from "lucide-react";
+import { Users, Globe, Activity, AlertTriangle, XCircle } from "lucide-react";
 import { getClients } from "@/lib/firebase/firestore";
 import { getSites } from "@/lib/firebase/sites";
 
@@ -26,12 +26,11 @@ export function MetricsCards() {
     load();
   }, []);
 
-  const onlineSites = sites.filter((s) => s.status === "Healthy");
+  const onlineSites = sites.filter((s) => s.status === "Healthy" || s.status === "Warning");
   const onlinePercentage =
     sites.length > 0 ? Math.round((onlineSites.length / sites.length) * 100) : 0;
-  const activeAlerts = sites.filter(
-    (s) => s.status === "Critical" || s.status === "Warning"
-  ).length;
+  const warningsCount = sites.filter((s) => s.status === "Warning").length;
+  const criticalCount = sites.filter((s) => s.status === "Critical").length;
 
   const metrics = [
     {
@@ -56,18 +55,18 @@ export function MetricsCards() {
       bg: "bg-emerald-100",
     },
     {
-      title: "Alertas ativos",
-      value: loading ? "—" : activeAlerts.toString(),
+      title: "Avisos",
+      value: loading ? "—" : warningsCount.toString(),
       icon: AlertTriangle,
-      color: "text-rose-500",
-      bg: "bg-rose-100",
-    },
-    {
-      title: "Atualizações de plugins",
-      value: "0",
-      icon: Blocks,
       color: "text-amber-500",
       bg: "bg-amber-100",
+    },
+    {
+      title: "Alertas críticos",
+      value: loading ? "—" : criticalCount.toString(),
+      icon: XCircle,
+      color: "text-rose-500",
+      bg: "bg-rose-100",
     },
   ];
 

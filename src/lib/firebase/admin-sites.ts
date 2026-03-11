@@ -16,7 +16,7 @@ export async function getSitesAdmin(): Promise<Site[]> {
 
 export async function updateSiteAdmin(
   id: string,
-  data: Partial<Pick<Site, "status" | "sslValid" | "responseTime" | "wpVersion">>
+  data: Partial<Pick<Site, "status" | "issues" | "sslValid" | "responseTime" | "wpVersion">>
 ): Promise<void> {
   await adminDb.collection(SITES_COLLECTION).doc(id).update({
     ...data,
@@ -38,8 +38,20 @@ export async function addMonitoringLogAdmin(log: {
   malwareDetected?: boolean;
   performanceScore?: number | null;
 }): Promise<void> {
-  await adminDb.collection(MONITORING_LOGS_COLLECTION).add({
-    ...log,
+  const data: Record<string, unknown> = {
+    siteId: log.siteId,
+    siteName: log.siteName,
+    siteUrl: log.siteUrl,
+    status: log.status,
+    issues: log.issues,
     checkedAt: new Date(),
-  });
+  };
+  if (log.httpOk !== undefined) data.httpOk = log.httpOk;
+  if (log.responseTimeMs !== undefined && log.responseTimeMs !== null) data.responseTimeMs = log.responseTimeMs;
+  if (log.sslValid !== undefined && log.sslValid !== null) data.sslValid = log.sslValid;
+  if (log.sslExpiryDays !== undefined && log.sslExpiryDays !== null) data.sslExpiryDays = log.sslExpiryDays;
+  if (log.wpVersion !== undefined && log.wpVersion !== null) data.wpVersion = log.wpVersion;
+  if (log.malwareDetected !== undefined) data.malwareDetected = log.malwareDetected;
+  if (log.performanceScore !== undefined && log.performanceScore !== null) data.performanceScore = log.performanceScore;
+  await adminDb.collection(MONITORING_LOGS_COLLECTION).add(data);
 }

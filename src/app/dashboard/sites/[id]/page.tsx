@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
-import { ArrowLeft, Edit, ExternalLink, Trash2, Globe, Shield, Clock, Activity, Plus } from "lucide-react"
+import { ArrowLeft, Edit, ExternalLink, Trash2, Globe, Shield, Clock, Activity, Plus, AlertTriangle } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { getSite, deleteSite, Site } from "@/lib/firebase/sites"
 import { getMaintenanceLogs, addMaintenanceLog, MaintenanceEntry } from "@/lib/firebase/maintenance"
@@ -157,7 +157,7 @@ export default function SiteDetailPage() {
               <span>{site.clientName || "Sem cliente"}</span>
               <span>•</span>
               <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
-                {site.status}
+                {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
               </span>
             </div>
           </div>
@@ -175,6 +175,30 @@ export default function SiteDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Avisos/Críticos - detalhes */}
+      {site.issues && site.issues.length > 0 && (
+        <Card className={site.status === "Critical" ? "border-rose-200" : "border-amber-200"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              {site.status === "Critical" ? "Problemas críticos" : "Avisos"}
+            </CardTitle>
+            <CardDescription>
+              {site.status === "Critical"
+                ? "Estes problemas precisam de atenção imediata."
+                : "Recomenda-se verificar estes pontos."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="text-sm space-y-2 list-disc list-inside">
+              {site.issues.map((issue, i) => (
+                <li key={i}>{issue}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Monitoring Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">

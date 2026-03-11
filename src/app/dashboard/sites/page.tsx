@@ -4,27 +4,53 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, ExternalLink, MoreHorizontal } from "lucide-react"
+import { Plus, ExternalLink, Pencil, Trash2, Info } from "lucide-react"
 import Link from "next/link"
-import { getSites, Site } from "@/lib/firebase/sites"
+import { getSites, deleteSite, Site } from "@/lib/firebase/sites"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const loadSites = async () => {
+    try {
+      const data = await getSites()
+      setSites(data)
+    } catch (error) {
+      console.error("Failed to load sites:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function loadSites() {
-      try {
-        const data = await getSites()
-        setSites(data)
-      } catch (error) {
-        console.error("Failed to load sites:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
     loadSites()
   }, [])
+
+  const handleDeleteSite = async (id: string) => {
+    setDeletingId(id)
+    try {
+      await deleteSite(id)
+      await loadSites()
+    } catch (error) {
+      console.error("Failed to delete site:", error)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -97,17 +123,71 @@ export default function SitesPage() {
                     <TableCell>{site.clientName || "—"}</TableCell>
                     <TableCell>{site.type}</TableCell>
                     <TableCell>
-                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
-                        {site.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
+                          {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
+                        </span>
+                        {(site.status === "Warning" || site.status === "Critical") && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button type="button" className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes">
+                                <Info className="h-4 w-4" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 sm:w-80" align="start">
+                              <p className="font-medium text-sm mb-2">Detalhes do aviso/crítico</p>
+                              {site.issues && site.issues.length > 0 ? (
+                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                  {site.issues.map((issue, i) => (
+                                    <li key={i}>{issue}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/dashboard/sites/${site.id}`}>
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">View</span>
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link href={`/dashboard/sites/${site.id}/edit`} aria-label="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={!!deletingId}
+                              aria-label="Excluir"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir site?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. O site será removido do monitoramento.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => site.id && handleDeleteSite(site.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

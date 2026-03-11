@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Info } from "lucide-react";
 import { getSites } from "@/lib/firebase/sites";
 import { getClients } from "@/lib/firebase/firestore";
 import type { Site } from "@/lib/firebase/sites";
 import type { Client } from "@/lib/firebase/firestore";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export function RecentSitesTable() {
   const [allSites, setAllSites] = useState<Site[]>([]);
@@ -78,20 +79,62 @@ export function RecentSitesTable() {
                       </Badge>
                     )}
                     {site.status === "Critical" && (
-                      <Badge
-                        variant="outline"
-                        className="text-rose-600 bg-rose-50 border-rose-200"
-                      >
-                        <XCircle className="w-3 h-3 mr-1" /> Crítico
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-rose-600 bg-rose-50 border-rose-200"
+                        >
+                          <XCircle className="w-3 h-3 mr-1" /> Crítico
+                        </Badge>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button type="button" className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes">
+                              <Info className="h-4 w-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" align="end">
+                            <p className="font-medium text-sm mb-2">Detalhes do crítico</p>
+                            {site.issues && site.issues.length > 0 ? (
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                {site.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     )}
                     {site.status === "Warning" && (
-                      <Badge
-                        variant="outline"
-                        className="text-amber-600 bg-amber-50 border-amber-200"
-                      >
-                        <AlertCircle className="w-3 h-3 mr-1" /> Aviso
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-amber-600 bg-amber-50 border-amber-200"
+                        >
+                          <AlertCircle className="w-3 h-3 mr-1" /> Aviso
+                        </Badge>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button type="button" className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes">
+                              <Info className="h-4 w-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" align="end">
+                            <p className="font-medium text-sm mb-2">Detalhes do aviso</p>
+                            {site.issues && site.issues.length > 0 ? (
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                {site.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     )}
                     {site.status === "Unknown" && (
                       <Badge
