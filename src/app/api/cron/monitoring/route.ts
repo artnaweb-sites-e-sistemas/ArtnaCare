@@ -53,6 +53,7 @@ export async function POST(request: Request) {
           sslValid: monitoringResult.sslValid,
           sslExpiryDays: monitoringResult.sslExpiryDays,
           wpVersion: monitoringResult.wpVersion,
+          malwareDetected: monitoringResult.malwareDetected,
           performanceScore: monitoringResult.performanceScore,
           checkedAt: serverTimestamp(),
         });

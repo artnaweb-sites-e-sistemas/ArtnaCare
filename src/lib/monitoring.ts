@@ -4,6 +4,7 @@
  */
 
 import { MonitoringResult } from "./status-calculator";
+import { checkSucuri } from "./integrations";
 
 /**
  * Perform an HTTP health check on a URL.
@@ -88,10 +89,11 @@ export async function checkWordPress(url: string): Promise<{ version: string | n
  * Run all monitoring checks for a site URL.
  */
 export async function runAllChecks(url: string, type: string): Promise<MonitoringResult> {
-  const [httpResult, sslResult, wpResult] = await Promise.all([
+  const [httpResult, sslResult, wpResult, sucuriResult] = await Promise.all([
     checkHttp(url),
     checkSsl(url),
     type === "WordPress" ? checkWordPress(url) : Promise.resolve({ version: null }),
+    checkSucuri(url),
   ]);
 
   return {
@@ -102,7 +104,7 @@ export async function runAllChecks(url: string, type: string): Promise<Monitorin
     wpVersion: wpResult.version,
     wpPluginsOutdated: 0, // Will be populated by WP plugin endpoint
     wpThemeOutdated: false,
-    malwareDetected: false, // Will be populated by malware check API
+    malwareDetected: sucuriResult.malwareDetected,
     performanceScore: null, // Will be populated by PageSpeed API
   };
 }

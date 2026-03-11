@@ -1,26 +1,63 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react"
+import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Activity } from "lucide-react"
+
+type UptimeMonitor = {
+  id: number;
+  friendly_name: string;
+  url: string;
+  status: number;
+  all_time_uptime_ratio?: string;
+};
 
 export default function MonitoringPage() {
   const [running, setRunning] = useState(false)
+  const [uptimeMonitors, setUptimeMonitors] = useState<UptimeMonitor[]>([])
+  const [uptimeError, setUptimeError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/integrations/uptimerobot")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) setUptimeError(data.error)
+        else setUptimeMonitors(data.monitors || [])
+      })
+      .catch(() => setUptimeError("Não foi possível carregar"))
+  }, [])
 
   const handleRunChecks = async () => {
     setRunning(true)
     try {
       const res = await fetch("/api/cron/monitoring", { method: "POST" })
       if (!res.ok) throw new Error("Check failed")
-      alert("Monitoring checks completed!")
+      alert("Verificações concluídas!")
     } catch (error) {
       console.error("Monitoring error:", error)
-      alert("Failed to run monitoring checks. Make sure the API endpoint is configured.")
+      alert("Falha ao executar verificações. Verifique se o endpoint está configurado.")
     } finally {
       setRunning(false)
     }
+  }
+
+  const statusLabel = (status: number) => {
+    switch (status) {
+      case 0: return "Pausado"
+      case 1: return "Não verificado"
+      case 2: return "Online"
+      case 8: return "Possível instabilidade"
+      case 9: return "Offline"
+      default: return "Desconhecido"
+    }
+  }
+
+  const statusColor = (status: number) => {
+    if (status === 2) return "text-emerald-600 bg-emerald-50 border-emerald-200"
+    if (status === 8 || status === 9) return "text-rose-600 bg-rose-50 border-rose-200"
+    return "text-slate-600 bg-slate-50 border-slate-200"
   }
 
   return (
@@ -111,6 +148,50 @@ export default function MonitoringPage() {
               </TableRow>
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* UptimeRobot Monitors */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Monitores UptimeRobot
+          </CardTitle>
+          <CardDescription>
+            Status dos monitores configurados no UptimeRobot. Configure UPTIMEROBOT_API_KEY no .env para ativar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {uptimeError ? (
+            <p className="text-sm text-amber-600 py-4">{uptimeError}</p>
+          ) : uptimeMonitors.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Nenhum monitor encontrado ou API key não configurada.</p>
+          ) : (
+            <div className="space-y-3">
+              {uptimeMonitors.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
+                >
+                  <div>
+                    <p className="font-medium">{m.friendly_name || m.url}</p>
+                    <p className="text-sm text-muted-foreground">{m.url}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {m.all_time_uptime_ratio != null && (
+                      <span className="text-sm text-muted-foreground">
+                        Uptime: {parseFloat(m.all_time_uptime_ratio).toFixed(2)}%
+                      </span>
+                    )}
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${statusColor(m.status)}`}>
+                      {statusLabel(m.status)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
