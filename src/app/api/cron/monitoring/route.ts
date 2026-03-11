@@ -1,24 +1,17 @@
 import { NextResponse } from "next/server";
-import { collection, getDocs, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
-import { getSites, updateSite } from "@/lib/firebase/sites";
+import { adminDb } from "@/lib/firebase/admin";
+import { getSitesAdmin, updateSiteAdmin, addMonitoringLogAdmin } from "@/lib/firebase/admin-sites";
 import { runAllChecks } from "@/lib/monitoring";
 import { calculateStatus } from "@/lib/status-calculator";
 
 /**
  * POST /api/cron/monitoring
  * Runs monitoring checks on all registered sites and stores results.
- * Can be invoked by a CRON job (e.g., Vercel Cron) or manually.
+ * Uses Firebase Admin SDK (works on Vercel serverless without user auth).
  */
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    // Optional: verify CRON secret in production
-    // const authHeader = request.headers.get("authorization");
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-
-    const sites = await getSites();
+    const sites = await getSitesAdmin();
 
     if (sites.length === 0) {
       return NextResponse.json({ message: "No sites to monitor", results: [] });
@@ -28,21 +21,17 @@ export async function POST(request: Request) {
 
     for (const site of sites) {
       try {
-        // Run all monitoring checks
         const monitoringResult = await runAllChecks(site.url, site.type);
         const statusResult = calculateStatus(monitoringResult);
 
-        // Update site status in Firestore
-        await updateSite(site.id!, {
+        await updateSiteAdmin(site.id!, {
           status: statusResult.status,
           sslValid: monitoringResult.sslValid ?? undefined,
           responseTime: monitoringResult.responseTimeMs ?? undefined,
           wpVersion: monitoringResult.wpVersion ?? undefined,
         });
 
-        // Save monitoring log entry
-        const logsRef = collection(db, "monitoring_logs");
-        await addDoc(logsRef, {
+        await addMonitoringLogAdmin({
           siteId: site.id,
           siteName: site.name,
           siteUrl: site.url,
@@ -55,7 +44,6 @@ export async function POST(request: Request) {
           wpVersion: monitoringResult.wpVersion,
           malwareDetected: monitoringResult.malwareDetected,
           performanceScore: monitoringResult.performanceScore,
-          checkedAt: serverTimestamp(),
         });
 
         results.push({
@@ -83,21 +71,26 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Monitoring CRON error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error", details: String(error) },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * GET /api/cron/monitoring
- * Returns recent monitoring logs.
+ * Returns recent monitoring logs (uses Admin SDK for server-side).
  */
 export async function GET() {
   try {
-    const logsRef = collection(db, "monitoring_logs");
-    const q = query(logsRef, orderBy("checkedAt", "desc"));
-    const snapshot = await getDocs(q);
+    const snapshot = await adminDb
+      .collection("monitoring_logs")
+      .orderBy("checkedAt", "desc")
+      .limit(100)
+      .get();
 
-    const logs = snapshot.docs.slice(0, 100).map(doc => ({
+    const logs = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
