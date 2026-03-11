@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
-import { ArrowLeft, Edit, ExternalLink, Trash2, Globe, Shield, Clock, Activity, Plus, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Edit, ExternalLink, Trash2, Globe, Shield, Clock, Activity, Plus, AlertTriangle, Info } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { getSite, deleteSite, Site } from "@/lib/firebase/sites"
 import { getMaintenanceLogs, addMaintenanceLog, MaintenanceEntry } from "@/lib/firebase/maintenance"
 import { useAuth } from "@/hooks/useAuth"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 const MAINTENANCE_TYPES: { value: MaintenanceEntry["type"]; label: string }[] = [
   { value: "Update", label: "Atualização" },
@@ -156,9 +157,32 @@ export default function SiteDetailPage() {
               <span>•</span>
               <span>{site.clientName || "Sem cliente"}</span>
               <span>•</span>
+              <div className="flex items-center gap-1.5">
               <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
                 {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
               </span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
+                    <Info className="h-4 w-4" />
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 sm:w-80" align="start">
+                  <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                  {site.issues && site.issues.length > 0 ? (
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                      {site.issues.map((issue, i) => (
+                        <li key={i}>{issue}</li>
+                      ))}
+                    </ul>
+                  ) : site.status === "Healthy" ? (
+                    <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
             </div>
           </div>
         </div>

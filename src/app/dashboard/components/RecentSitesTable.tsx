@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, AlertCircle, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { getSites } from "@/lib/firebase/sites";
 import { getClients } from "@/lib/firebase/firestore";
 import type { Site } from "@/lib/firebase/sites";
@@ -71,12 +71,33 @@ export function RecentSitesTable() {
                       {client ? client.name : site.clientId}
                     </span>
                     {site.status === "Healthy" && (
-                      <Badge
-                        variant="outline"
-                        className="text-emerald-600 bg-emerald-50 border-emerald-200"
-                      >
-                        <CheckCircle2 className="w-3 h-3 mr-1" /> Saudável
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-emerald-600 bg-emerald-50 border-emerald-200"
+                        >
+                          Saudável
+                        </Badge>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
+                              <Info className="h-4 w-4" />
+                            </span>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" align="end">
+                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                            {site.issues && site.issues.length > 0 ? (
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                {site.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     )}
                     {site.status === "Critical" && (
                       <div className="flex items-center gap-1">
@@ -84,16 +105,16 @@ export function RecentSitesTable() {
                           variant="outline"
                           className="text-rose-600 bg-rose-50 border-rose-200"
                         >
-                          <XCircle className="w-3 h-3 mr-1" /> Crítico
+                          Crítico
                         </Badge>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button type="button" className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes">
+                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
                               <Info className="h-4 w-4" />
-                            </button>
+                            </span>
                           </PopoverTrigger>
                           <PopoverContent className="w-72 sm:w-80" align="end">
-                            <p className="font-medium text-sm mb-2">Detalhes do crítico</p>
+                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
                             {site.issues && site.issues.length > 0 ? (
                               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                                 {site.issues.map((issue, i) => (
@@ -113,16 +134,16 @@ export function RecentSitesTable() {
                           variant="outline"
                           className="text-amber-600 bg-amber-50 border-amber-200"
                         >
-                          <AlertCircle className="w-3 h-3 mr-1" /> Aviso
+                          Aviso
                         </Badge>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button type="button" className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes">
+                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
                               <Info className="h-4 w-4" />
-                            </button>
+                            </span>
                           </PopoverTrigger>
                           <PopoverContent className="w-72 sm:w-80" align="end">
-                            <p className="font-medium text-sm mb-2">Detalhes do aviso</p>
+                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
                             {site.issues && site.issues.length > 0 ? (
                               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                                 {site.issues.map((issue, i) => (
@@ -137,12 +158,62 @@ export function RecentSitesTable() {
                       </div>
                     )}
                     {site.status === "Unknown" && (
-                      <Badge
-                        variant="outline"
-                        className="text-slate-600 bg-slate-50 border-slate-200"
-                      >
-                        <AlertCircle className="w-3 h-3 mr-1" /> Desconhecido
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-slate-600 bg-slate-50 border-slate-200"
+                        >
+                          Desconhecido
+                        </Badge>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
+                              <Info className="h-4 w-4" />
+                            </span>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" align="end">
+                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                            {site.issues && site.issues.length > 0 ? (
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                {site.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+                    {!["Healthy", "Critical", "Warning", "Unknown"].includes(site.status || "") && (
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-slate-600 bg-slate-50 border-slate-200"
+                        >
+                          {site.status || "—"}
+                        </Badge>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
+                              <Info className="h-4 w-4" />
+                            </span>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" align="end">
+                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                            {site.issues && site.issues.length > 0 ? (
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                {site.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     )}
                   </div>
                 </div>

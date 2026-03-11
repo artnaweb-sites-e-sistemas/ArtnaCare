@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Activity, Link2, Loader2, Info } from "lucide-react"
+import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Link2, Loader2, Info } from "lucide-react"
 import { getSites, type Site } from "@/lib/firebase/sites"
 import {
   Dialog,
@@ -384,161 +384,14 @@ export default function MonitoringPage() {
         </Card>
       </div>
 
-      {/* Resultados dos sites cadastrados na ArtnaCare */}
+      {/* Resultados unificados: verificação ArtnaCare (HTTP, SSL, WP, Malware) + Online/Offline (UptimeRobot) */}
       <Card>
         <CardHeader>
-          <CardTitle>Resultados mais recentes</CardTitle>
-          <CardDescription>
-            Sites cadastrados na ArtnaCare (menu Sites). Execute as verificações para atualizar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Site</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Tempo de resposta</TableHead>
-                <TableHead>SSL</TableHead>
-                <TableHead>Versão do WP</TableHead>
-                <TableHead>Última checagem</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logsLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Carregando…
-                  </TableCell>
-                </TableRow>
-              ) : logsError ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-amber-600">
-                    {logsError} Configure FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY no .env.local.
-                  </TableCell>
-                </TableRow>
-              ) : displayLogs.length > 0 ? (
-                displayLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{log.siteName}</p>
-                        <p className="text-xs text-muted-foreground">{log.siteUrl}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                            log.status === "Healthy"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : log.status === "Warning"
-                                ? "bg-amber-100 text-amber-800"
-                                : log.status === "Critical"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-slate-100 text-slate-800"
-                          }`}
-                        >
-                          {log.status === "Healthy"
-                            ? "Saudável"
-                            : log.status === "Warning"
-                              ? "Aviso"
-                              : log.status === "Critical"
-                                ? "Crítico"
-                                : log.status === "Unknown"
-                                  ? "Desconhecido"
-                                  : log.status === "Error"
-                                    ? "Erro"
-                                    : log.status}
-                        </span>
-                        {(log.status === "Warning" || log.status === "Critical") && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                                aria-label="Ver detalhes do aviso"
-                              >
-                                <Info className="h-4 w-4" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72 sm:w-80" align="start">
-                              <p className="font-medium text-sm mb-2">Detalhes do aviso/crítico</p>
-                              {log.issues && log.issues.length > 0 ? (
-                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                  {log.issues.map((issue, i) => (
-                                    <li key={i}>{issue}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">Execute as verificações novamente para obter os detalhes.</p>
-                              )}
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{log.responseTimeMs != null ? `${log.responseTimeMs} ms` : "—"}</TableCell>
-                    <TableCell>{log.sslValid === true ? "Válido" : log.sslValid === false ? "Inválido" : "—"}</TableCell>
-                    <TableCell>{log.wpVersion ?? "—"}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const parts = getCheckedAtParts(log.checkedAt)
-                        return parts ? (
-                          <>
-                            {parts.dateStr},{" "}
-                            <span className="text-xs">{parts.timeStr}h</span>
-                          </>
-                        ) : (
-                          "—"
-                        )
-                      })()}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : artnaSites.length > 0 ? (
-                artnaSites.map((site) => (
-                  <TableRow key={site.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{site.name}</p>
-                        <p className="text-xs text-muted-foreground">{site.url}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">
-                        Pendente
-                      </span>
-                    </TableCell>
-                    <TableCell>—</TableCell>
-                    <TableCell>—</TableCell>
-                    <TableCell>—</TableCell>
-                    <TableCell>—</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Nenhum site cadastrado. Adicione sites em Sites e clique em &ldquo;Executar todas as verificações&rdquo;.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Monitores UptimeRobot - apenas sites cadastrados na ArtnaCare */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Monitores UptimeRobot
-              </CardTitle>
+              <CardTitle>Resultados e status dos sites</CardTitle>
               <CardDescription>
-                Apenas sites cadastrados na ArtnaCare. Novos sites são cadastrados automaticamente no UptimeRobot.
+                Status da verificação (HTTP, SSL, WP, malware) e Online/Offline pelo UptimeRobot. Execute as verificações para atualizar.
               </CardDescription>
             </div>
             {unsyncedSites.length > 0 && (
@@ -547,76 +400,193 @@ export default function MonitoringPage() {
                 size="sm"
                 onClick={handleSyncAll}
                 disabled={!!syncing}
+                className="shrink-0"
               >
                 <Link2 className="mr-2 h-4 w-4" />
-                Sincronizar {unsyncedSites.length} site(s)
+                Sincronizar {unsyncedSites.length} site(s) no UptimeRobot
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          {uptimeError ? (
-            <p className="text-sm text-amber-600 py-4">{uptimeError}</p>
-          ) : artnaSites.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">Nenhum site cadastrado. Adicione sites em Sites.</p>
-          ) : (
-            <div className="space-y-3">
-              {syncedSites.map((site) => {
-                const monitor = monitorsByUrl.get(normalizeUrl(site.url))
-                const isPreparing =
-                  (site.id != null && sitesInPreparing.has(site.id) && !monitor) ||
-                  (monitor?.status === 1)
-                const displayStatus = isPreparing ? 1 : monitor?.status ?? 1
-                return (
-                  <div
-                    key={site.id}
-                    className="flex items-center justify-between p-4 border rounded-lg bg-muted/30"
-                  >
-                    <div>
-                      <p className="font-medium">{site.name}</p>
-                      <p className="text-sm text-muted-foreground">{site.url}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {!isPreparing && monitor?.all_time_uptime_ratio != null && (
-                        <span className="text-sm text-muted-foreground">
-                          Uptime: {parseFloat(monitor.all_time_uptime_ratio).toFixed(2)}%
-                        </span>
-                      )}
-                      {isPreparing && (
-                        <Loader2 className="h-4 w-4 animate-spin text-amber-600" aria-hidden />
-                      )}
-                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${statusColor(displayStatus)}`}>
-                        {statusLabel(displayStatus)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-              {unsyncedSites.map((site) => (
-                <div
-                  key={site.id}
-                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/30 border-dashed"
-                >
-                  <div>
-                    <p className="font-medium">{site.name}</p>
-                    <p className="text-sm text-muted-foreground">{site.url}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-muted-foreground">Não sincronizado</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSyncSite(site)}
-                      disabled={!!syncing}
-                    >
-                      <Link2 className="mr-2 h-4 w-4" />
-                      Sincronizar
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {uptimeError && (
+            <p className="text-sm text-amber-600 py-2 mb-2">{uptimeError}</p>
           )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Site</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Tempo de resposta</TableHead>
+                <TableHead>SSL</TableHead>
+                <TableHead>Versão do WP</TableHead>
+                <TableHead>Disponibilidade</TableHead>
+                <TableHead>Última checagem</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logsLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    Carregando…
+                  </TableCell>
+                </TableRow>
+              ) : logsError ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-amber-600">
+                    {logsError} Configure FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY no .env.local.
+                  </TableCell>
+                </TableRow>
+              ) : artnaSites.length > 0 ? (
+                artnaSites.map((site) => {
+                  const siteUrlNorm = normalizeUrl(site.url)
+                  const log = displayLogs.find((l) => normalizeUrl(l.siteUrl) === siteUrlNorm)
+                  const monitor = monitorsByUrl.get(siteUrlNorm)
+                  const isPreparing =
+                    (site.id != null && sitesInPreparing.has(site.id) && !monitor) ||
+                    (monitor?.status === 1)
+                  const uptimeDisplayStatus = isPreparing ? 1 : monitor?.status ?? null
+                  return (
+                    <TableRow key={site.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{site.name}</p>
+                          <p className="text-xs text-muted-foreground">{site.url}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          {log ? (
+                            <>
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                  log.status === "Healthy"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : log.status === "Warning"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : log.status === "Critical"
+                                        ? "bg-rose-100 text-rose-800"
+                                        : "bg-slate-100 text-slate-800"
+                                }`}
+                              >
+                                {log.status === "Healthy"
+                                  ? "Saudável"
+                                  : log.status === "Warning"
+                                    ? "Aviso"
+                                    : log.status === "Critical"
+                                      ? "Crítico"
+                                      : log.status === "Unknown"
+                                        ? "Desconhecido"
+                                        : log.status === "Error"
+                                          ? "Erro"
+                                          : log.status}
+                              </span>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                    aria-label="Ver detalhes do status"
+                                  >
+                                    <Info className="h-4 w-4" />
+                                  </span>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72 sm:w-80" align="start">
+                                  <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                                  {log.issues && log.issues.length > 0 ? (
+                                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                      {log.issues.map((issue, i) => (
+                                        <li key={i}>{issue}</li>
+                                      ))}
+                                    </ul>
+                                  ) : log.status === "Healthy" ? (
+                                    <p className="text-sm text-muted-foreground">Nenhum problema detectado nesta verificação.</p>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">Execute as verificações novamente para obter os detalhes.</p>
+                                  )}
+                                </PopoverContent>
+                              </Popover>
+                            </>
+                          ) : (
+                            <>
+                              <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">
+                                Pendente
+                              </span>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                    aria-label="Ver detalhes do status"
+                                  >
+                                    <Info className="h-4 w-4" />
+                                  </span>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72 sm:w-80" align="start">
+                                  <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                                  <p className="text-sm text-muted-foreground">Execute as verificações para obter os detalhes deste site.</p>
+                                </PopoverContent>
+                              </Popover>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{log?.responseTimeMs != null ? `${log.responseTimeMs} ms` : "—"}</TableCell>
+                      <TableCell>{log?.sslValid === true ? "Válido" : log?.sslValid === false ? "Inválido" : "—"}</TableCell>
+                      <TableCell>{log?.wpVersion ?? "—"}</TableCell>
+                      <TableCell>
+                        {uptimeDisplayStatus !== null ? (
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border ${statusColor(uptimeDisplayStatus)}`}>
+                            {isPreparing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+                            {statusLabel(uptimeDisplayStatus)}
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Não sincronizado</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => handleSyncSite(site)}
+                              disabled={!!syncing}
+                            >
+                              <Link2 className="mr-1 h-3 w-3" />
+                              Sincronizar
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {log?.checkedAt ? (
+                          (() => {
+                            const parts = getCheckedAtParts(log.checkedAt)
+                            return parts ? (
+                              <>
+                                {parts.dateStr},{" "}
+                                <span className="text-xs">{parts.timeStr}h</span>
+                              </>
+                            ) : (
+                              "—"
+                            )
+                          })()
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    Nenhum site cadastrado. Adicione sites em Sites e clique em &ldquo;Executar todas as verificações&rdquo;.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

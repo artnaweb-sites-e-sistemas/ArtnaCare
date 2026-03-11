@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
-import { ArrowLeft, Edit, ExternalLink, Trash2, Plus, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Edit, ExternalLink, Trash2, Plus, MoreHorizontal, Info } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { getClient, deleteClient, Client } from "@/lib/firebase/firestore"
 import { getSitesByClient, Site } from "@/lib/firebase/sites"
 import { formatPhoneDisplay, getPhoneDigits } from "@/lib/phone"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function ClientDetailPage() {
   const params = useParams()
@@ -228,9 +229,32 @@ export default function ClientDetailPage() {
                         </a>
                       </TableCell>
                       <TableCell>
-                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
-                          {statusLabel(site.status)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
+                            {statusLabel(site.status)}
+                          </span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
+                                <Info className="h-4 w-4" />
+                              </span>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 sm:w-80" align="start">
+                              <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                              {site.issues && site.issues.length > 0 ? (
+                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                  {site.issues.map((issue, i) => (
+                                    <li key={i}>{issue}</li>
+                                  ))}
+                                </ul>
+                              ) : site.status === "Healthy" ? (
+                                <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" asChild>

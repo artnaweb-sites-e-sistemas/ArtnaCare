@@ -127,27 +127,27 @@ export default function SitesPage() {
                         <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
                           {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
                         </span>
-                        {(site.status === "Warning" || site.status === "Critical") && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button type="button" className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes">
-                                <Info className="h-4 w-4" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72 sm:w-80" align="start">
-                              <p className="font-medium text-sm mb-2">Detalhes do aviso/crítico</p>
-                              {site.issues && site.issues.length > 0 ? (
-                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                  {site.issues.map((issue, i) => (
-                                    <li key={i}>{issue}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
-                              )}
-                            </PopoverContent>
-                          </Popover>
-                        )}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
+                              <Info className="h-4 w-4" />
+                            </span>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" align="start">
+                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                            {site.issues && site.issues.length > 0 ? (
+                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                                {site.issues.map((issue, i) => (
+                                  <li key={i}>{issue}</li>
+                                ))}
+                              </ul>
+                            ) : site.status === "Healthy" ? (
+                              <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
+                            )}
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
