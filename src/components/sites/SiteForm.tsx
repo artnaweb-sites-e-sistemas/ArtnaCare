@@ -94,6 +94,20 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
           wpAdminUser: formData.wpAdminUser || undefined,
           wpAdminPassword: formData.wpAdminPassword || undefined,
         })
+        // Criar monitor no UptimeRobot automaticamente (se API key configurada)
+        try {
+          const res = await fetch("/api/integrations/uptimerobot/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: formData.name, url: formData.url }),
+          })
+          const data = await res.json()
+          if (data.monitorId) {
+            await updateSite(newId, { uptimerobotMonitorId: data.monitorId })
+          }
+        } catch {
+          // Ignora se UptimeRobot não estiver configurado
+        }
         router.push(`/dashboard/sites/${newId}`)
       }
       router.refresh()

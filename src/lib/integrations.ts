@@ -32,6 +32,45 @@ export async function getUptimeRobotMonitors() {
   }
 }
 
+/**
+ * Create a new monitor in UptimeRobot.
+ * type 1 = HTTP(s) monitor
+ */
+export async function createUptimeRobotMonitor(
+  friendlyName: string,
+  url: string
+): Promise<{ monitorId?: string; error?: string }> {
+  const apiKey = process.env.UPTIMEROBOT_API_KEY;
+  if (!apiKey) {
+    return { error: "UPTIMEROBOT_API_KEY not configured" };
+  }
+
+  const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
+
+  try {
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      format: "json",
+      type: "1",
+      url: normalizedUrl,
+      friendly_name: friendlyName,
+    });
+    const res = await fetch("https://api.uptimerobot.com/v2/newMonitor", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    const data = await res.json();
+    if (data.stat === "ok" && data.monitor?.id) {
+      return { monitorId: String(data.monitor.id) };
+    }
+    const errMsg = data.error?.message || data.error?.msg || (data.stat === "fail" ? "UptimeRobot recusou a requisição" : null);
+    return { error: errMsg || "Falha ao criar monitor no UptimeRobot" };
+  } catch (error) {
+    return { error: "Falha ao criar monitor no UptimeRobot" };
+  }
+}
+
 // ──────────────────────────────────────────────
 // Google PageSpeed Insights API
 // Docs: https://developers.google.com/speed/docs/insights/v5/get-started

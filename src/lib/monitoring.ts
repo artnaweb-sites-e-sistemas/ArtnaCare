@@ -85,15 +85,22 @@ export async function checkWordPress(url: string): Promise<{ version: string | n
   }
 }
 
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim()
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+  return `https://${trimmed}`
+}
+
 /**
  * Run all monitoring checks for a site URL.
  */
 export async function runAllChecks(url: string, type: string): Promise<MonitoringResult> {
+  const normalizedUrl = normalizeUrl(url)
   const [httpResult, sslResult, wpResult, sucuriResult] = await Promise.all([
-    checkHttp(url),
-    checkSsl(url),
-    type === "WordPress" ? checkWordPress(url) : Promise.resolve({ version: null }),
-    checkSucuri(url),
+    checkHttp(normalizedUrl),
+    checkSsl(normalizedUrl),
+    type === "WordPress" ? checkWordPress(normalizedUrl) : Promise.resolve({ version: null }),
+    checkSucuri(normalizedUrl),
   ]);
 
   return {

@@ -30,6 +30,7 @@ export interface Site {
   wpAdminUser?: string;
   wpAdminPassword?: string;
   reportEmail?: string;
+  uptimerobotMonitorId?: string;
   createdAt?: Timestamp | Date;
   updatedAt?: Timestamp | Date;
 }

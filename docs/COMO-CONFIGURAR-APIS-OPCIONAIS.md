@@ -6,7 +6,10 @@ Essas chaves **não são obrigatórias**. O ArtnaCare funciona normalmente sem e
 
 ## UptimeRobot (monitores de uptime externos)
 
-**O que faz no projeto:** A função `getUptimeRobotMonitors()` em `src/lib/integrations.ts` busca os monitores do UptimeRobot. Se a chave não estiver configurada, a função retorna lista vazia e o app continua funcionando.
+**O que faz no projeto:**
+- Ao **cadastrar um site** na ArtnaCare, um monitor é criado automaticamente no UptimeRobot (se a API key estiver configurada).
+- A seção **Monitores UptimeRobot** na tela de Monitoramento mostra **apenas** os sites cadastrados na ArtnaCare (não monitores criados manualmente fora do sistema).
+- Sites existentes sem monitor podem ser sincronizados com o botão "Sincronizar" na tela de Monitoramento.
 
 **Como obter a API Key:**
 
