@@ -38,12 +38,12 @@ export async function POST() {
           status: statusResult.status,
           issues: statusResult.issues,
           httpOk: monitoringResult.httpOk,
-          responseTimeMs: monitoringResult.responseTimeMs,
+          responseTimeMs: monitoringResult.responseTimeMs ?? undefined,
           sslValid: monitoringResult.sslValid,
-          sslExpiryDays: monitoringResult.sslExpiryDays,
-          wpVersion: monitoringResult.wpVersion,
+          sslExpiryDays: monitoringResult.sslExpiryDays ?? undefined,
+          wpVersion: monitoringResult.wpVersion ?? undefined,
           malwareDetected: monitoringResult.malwareDetected,
-          performanceScore: monitoringResult.performanceScore,
+          performanceScore: monitoringResult.performanceScore ?? undefined,
         });
 
         results.push({
