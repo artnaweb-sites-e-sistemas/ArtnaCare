@@ -80,11 +80,46 @@ O número de **plugins desatualizados** só aparece se o site WordPress expuser 
 
 ---
 
+## Resend (e-mail para relatórios)
+
+**O que faz no projeto:** Envia os relatórios mensais por e-mail aos clientes (em Relatórios ou pelo botão na tela Sites).
+
+**Por que aparece "Falha no envio" / "You can only send testing emails to your own email address":**
+
+Em modo **sandbox** (conta grátis), o Resend **só permite enviar para o próprio e-mail da conta** (ex.: artnawebconta@gmail.com). Para enviar para **outros destinatários** (e-mails dos clientes), é obrigatório:
+
+1. **Verificar um domínio** no Resend: [resend.com/domains](https://resend.com/domains) → adicione seu domínio (ex.: `artnacare.com`) e configure os registros DNS que o Resend indicar.
+2. **Alterar o endereço "from":** No `.env.local`, defina `RESEND_FROM_EMAIL` com um e-mail **desse domínio verificado**, por exemplo:
+   ```env
+   RESEND_FROM_EMAIL="relatorios@seudominio.com"
+   ```
+   Não use `onboarding@resend.dev` para envios reais; esse endereço é só para testes e continua sujeito à regra do sandbox.
+
+**Resumo:** Para enviar relatórios para os clientes, verifique um domínio em [resend.com/domains](https://resend.com/domains) e use um `from` com esse domínio. Caso contrário, o Resend só aceita envio para o seu próprio e-mail.
+
+**Outras causas de falha:**
+- **Spam:** Verifique a pasta de spam do destinatário.
+- **API Key:** Confirme que `RESEND_API_KEY` está correta no `.env.local` (e na Vercel, se fizer deploy).
+
+**Como configurar:**
+
+1. Crie conta em [resend.com](https://resend.com).
+2. Obtenha a API Key em **API Keys**.
+3. No `.env.local`:
+   ```env
+   RESEND_API_KEY="re_..."
+   RESEND_FROM_EMAIL="onboarding@resend.dev"
+   ```
+   Para **enviar para clientes**, verifique um domínio no Resend e use um e-mail desse domínio em `RESEND_FROM_EMAIL` (ex.: `relatorios@artnacare.com`).
+
+---
+
 ## Resumo
 
 | Variável              | Obrigatória? | Onde obter                          | Onde colocar        |
 |-----------------------|-------------|-------------------------------------|---------------------|
 | `UPTIMEROBOT_API_KEY` | Não         | UptimeRobot → My Settings → API Settings | `.env.local` e Vercel |
 | `SUCURI_API_KEY`      | Não         | Código atual não usa; deixe vazio  | Pode deixar vazio   |
+| `RESEND_API_KEY`      | Não         | Resend → API Keys                  | `.env.local` e Vercel |
 
-Só insira **UPTIMEROBOT_API_KEY** se você for usar monitores do UptimeRobot no app. **SUCURI_API_KEY** pode ficar em branco. As credenciais do WordPress são configuradas **por site** ao editar o site no menu Sites.
+Só insira **UPTIMEROBOT_API_KEY** se você for usar monitores do UptimeRobot. **SUCURI_API_KEY** pode ficar vazio. **RESEND_API_KEY** é necessário para enviar relatórios por e-mail. As credenciais do WordPress são configuradas **por site** ao editar o site no menu Sites.

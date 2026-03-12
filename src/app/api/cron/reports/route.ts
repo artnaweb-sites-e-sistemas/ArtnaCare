@@ -1,26 +1,39 @@
 import { NextResponse } from "next/server";
-import { getClients } from "@/lib/firebase/firestore";
-import { getSitesByClient } from "@/lib/firebase/sites";
+import { getClientsAdmin } from "@/lib/firebase/admin-clients";
+import { getSitesByClientAdmin } from "@/lib/firebase/admin-sites";
+import { createReportAdmin } from "@/lib/firebase/admin-reports";
+import { getReportTemplateAdmin } from "@/lib/firebase/admin-report-template";
 import { calculateStatus } from "@/lib/status-calculator";
 import { generateReportEmailHtml, sendEmail } from "@/lib/email";
 import { generatePdfFromHtml } from "@/lib/pdf";
 
 /**
  * POST /api/cron/reports
- * Gera relatórios mensais para todos os clientes.
- * Stub: Irá gerar PDF e enviar e-mail quando o Resend estiver configurado.
+ * Gera relatórios mensais. Se clientId no body, gera apenas para esse cliente.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    // 1. For each client with active sites
-    const clients = await getClients();
-    const activeClients = clients.filter(c => c.status === "Active");
+    let body: { clientId?: string } = {};
+    try {
+      body = await request.json().catch(() => ({}));
+    } catch {
+      // ignore
+    }
+    const { clientId: singleClientId } = body;
+
+    const clients = await getClientsAdmin();
+    let activeClients = clients.filter((c) => (c.status ?? "Active") === "Active");
+    if (singleClientId) {
+      activeClients = activeClients.filter((c) => c.id === singleClientId);
+    }
     let generatedCount = 0;
+    let lastEmailSent = false;
+    let lastEmailError: string | null = null;
 
     for (const client of activeClients) {
-      if (!client.id) continue;
+      if (!client.id || !client.email?.trim()) continue;
 
-      const sites = await getSitesByClient(client.id);
+      const sites = await getSitesByClientAdmin(client.id);
       if (sites.length === 0) continue;
 
       let sitesHealthy = 0;
@@ -56,9 +69,9 @@ export async function POST() {
       }
 
       const uptimePercentage = Math.round(totalUptimeSum / sites.length);
-      const period = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+      const period = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
 
-      const reportData = {
+      const reportTemplateData = {
         clientName: client.name,
         period,
         sitesTotal: sites.length,
@@ -68,39 +81,69 @@ export async function POST() {
         uptimePercentage,
       };
 
-      const htmlContent = generateReportEmailHtml(reportData);
+      const templateHtml = await getReportTemplateAdmin();
+      const htmlContent = generateReportEmailHtml(reportTemplateData, templateHtml);
 
-      // 3. Gerar relatório em PDF (Puppeteer)
-      const pdfBuffer = await generatePdfFromHtml(htmlContent);
-
-      // 4. Armazenar metadados do relatório no Firestore (Stub)
-      // TODO: implementar armazenamento de metadados dos relatórios
-
-      // 5. Enviar e-mail via API do Resend com o PDF em anexo
-      const emailResult = await sendEmail({
-        to: client.email,
-        subject: `Relatório de manutenção - ${period}`,
-        html: htmlContent,
-        attachments: [
+      // 3. Gerar relatório em PDF (Puppeteer) - opcional, pode falhar em alguns ambientes
+      let attachments: Array<{ filename: string; content: string }> = [];
+      try {
+        const pdfBuffer = await generatePdfFromHtml(htmlContent);
+        attachments = [
           {
             filename: `ArtnaCare_Relatorio_${client.name.replace(/\s+/g, "_")}_${period.replace(/\s+/g, "_")}.pdf`,
             content: pdfBuffer.toString("base64"),
           },
-        ],
-      });
-      if (!emailResult.success) {
-        console.error(`Falha ao enviar e-mail para ${client.email}:`, emailResult.error);
+        ];
+      } catch (pdfError) {
+        console.warn("PDF não gerado (Puppeteer pode não estar disponível):", pdfError);
       }
+
+      // 4. Enviar e-mail via API do Resend (com ou sem PDF em anexo)
+      const emailResult = await sendEmail({
+        to: client.email,
+        subject: `Relatório de manutenção - ${period}`,
+        html: htmlContent,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+      const emailSent = emailResult.success;
+      lastEmailSent = emailSent;
+      lastEmailError = emailResult.error ?? null;
+
+      if (!emailSent) {
+        console.error("[REPORTS] Falha ao enviar e-mail:", {
+          clientId: client.id,
+          clientEmail: client.email,
+          error: emailResult.error,
+        });
+      }
+
+      // 5. Salvar metadados do relatório no Firestore (inclui erro para debug)
+      const reportMeta = {
+        clientId: client.id,
+        clientName: client.name,
+        period,
+        emailSent,
+        pdfGenerated: attachments.length > 0,
+        email: client.email,
+        ...(!emailSent && { emailError: emailResult.error ?? "Erro desconhecido" }),
+      };
+      await createReportAdmin(reportMeta);
 
       generatedCount++;
     }
 
     return NextResponse.json({
-      message: "Geração de relatórios executada com sucesso. E-mails enviados via Resend.",
+      message: "Geração de relatórios executada.",
       generated: generatedCount,
+      emailSent: singleClientId ? lastEmailSent : undefined,
+      emailError: singleClientId ? lastEmailError : undefined,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Erro na geração dos relatórios:", error);
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro interno do servidor", details: message },
+      { status: 500 }
+    );
   }
 }

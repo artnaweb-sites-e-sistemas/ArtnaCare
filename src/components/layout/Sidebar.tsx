@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Users, Globe, Activity, FileText, Settings } from "lucide-react";
+import { Activity, Users, Globe, FileText } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/dashboard", label: "Monitoramento", icon: Activity },
   { href: "/dashboard/clients", label: "Clientes", icon: Users },
   { href: "/dashboard/sites", label: "Sites", icon: Globe },
-  { href: "/dashboard/monitoring", label: "Monitoramento", icon: Activity },
   { href: "/dashboard/reports", label: "Relatórios", icon: FileText },
 ];
 

@@ -197,15 +197,11 @@ export default function SiteForm({ site, isEditing = false, defaultClientId }: S
                   </a>
                 </Button>
                 <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="Como obter a senha de aplicação"
-                    >
-                      <Info className="h-4 w-4" />
-                    </span>
+                  <PopoverTrigger
+                    className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground hover:text-foreground"
+                    aria-label="Como obter a senha de aplicação"
+                  >
+                    <Info className="h-4 w-4" />
                   </PopoverTrigger>
                   <PopoverContent className="w-80 text-sm" align="start">
                     <p className="font-medium mb-2">Como obter a Senha de aplicação</p>

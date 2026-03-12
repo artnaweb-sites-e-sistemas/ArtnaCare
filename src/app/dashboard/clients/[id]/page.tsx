@@ -234,10 +234,11 @@ export default function ClientDetailPage() {
                             {statusLabel(site.status)}
                           </span>
                           <Popover>
-                            <PopoverTrigger asChild>
-                              <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
-                                <Info className="h-4 w-4" />
-                              </span>
+                            <PopoverTrigger
+                              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground hover:text-foreground"
+                              aria-label="Ver detalhes do status"
+                            >
+                              <Info className="h-4 w-4" />
                             </PopoverTrigger>
                             <PopoverContent className="w-72 sm:w-80" align="start">
                               <p className="font-medium text-sm mb-2">Detalhes do status</p>
@@ -257,7 +258,7 @@ export default function ClientDetailPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" asChild>
+                        <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/90 transition-all duration-200">
                           <Link href={`/dashboard/sites/${site.id}`}>
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Ver site</span>

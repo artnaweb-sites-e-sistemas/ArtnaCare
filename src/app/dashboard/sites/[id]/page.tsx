@@ -211,10 +211,11 @@ export default function SiteDetailPage() {
                 {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
               </span>
               <Popover>
-                <PopoverTrigger asChild>
-                  <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
-                    <Info className="h-4 w-4" />
-                  </span>
+                <PopoverTrigger
+                  className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground hover:text-foreground"
+                  aria-label="Ver detalhes do status"
+                >
+                  <Info className="h-4 w-4" />
                 </PopoverTrigger>
                 <PopoverContent className="w-72 sm:w-80" align="start">
                   <p className="font-medium text-sm mb-2">Detalhes do status</p>

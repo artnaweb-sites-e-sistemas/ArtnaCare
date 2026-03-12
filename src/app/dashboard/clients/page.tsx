@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, X } from "lucide-react"
 import Link from "next/link"
 import { getClients, deleteClient, Client } from "@/lib/firebase/firestore"
+import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ export default function ClientsPage() {
   const [sitesCountByClientId, setSitesCountByClientId] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const loadData = async () => {
     try {
@@ -56,6 +58,15 @@ export default function ClientsPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  const filteredClients = clients.filter((client) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.trim().toLowerCase()
+    const name = (client.name || "").toLowerCase()
+    const email = (client.email || "").toLowerCase()
+    const status = (client.status || "").toLowerCase()
+    return name.includes(q) || email.includes(q) || status.includes(q)
+  })
 
   const handleDeleteClient = async (id: string) => {
     setDeletingId(id)
@@ -86,8 +97,42 @@ export default function ClientsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Todos os clientes</CardTitle>
-          <CardDescription>Lista completa de clientes atualmente gerenciados pela ArtnaCare.</CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Todos os clientes</CardTitle>
+              <CardDescription>
+                {searchQuery.trim() ? (
+                  <>
+                    {filteredClients.length} de {clients.length} cliente{clients.length !== 1 ? "s" : ""} encontrado{filteredClients.length !== 1 ? "s" : ""}
+                  </>
+                ) : (
+                  "Lista completa de clientes atualmente gerenciados pela ArtnaCare."
+                )}
+              </CardDescription>
+            </div>
+            <div className="relative flex w-full shrink-0 items-center sm:w-72">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="search"
+                placeholder="Buscar nome, e-mail ou status..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-9 pr-9 focus-visible:ring-0 focus-visible:border-input focus-visible:outline-none"
+              />
+              {searchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar busca"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -114,8 +159,14 @@ export default function ClientsPage() {
                     Nenhum cliente encontrado.
                   </TableCell>
                 </TableRow>
+              ) : filteredClients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                    Nenhum cliente encontrado para &quot;{searchQuery}&quot;.
+                  </TableCell>
+                </TableRow>
               ) : (
-                clients.map((client) => (
+                filteredClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">
                       <Link href={`/dashboard/clients/${client.id}`} className="hover:underline">
@@ -127,7 +178,7 @@ export default function ClientsPage() {
                       <div className="flex items-center gap-2">
                         <span>{formatPhoneDisplay(client.phone)}</span>
                         {client.phone && (
-                          <Button variant="ghost" size="icon" asChild className="h-8 w-8 shrink-0 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800 dark:border-green-500 dark:text-green-400 dark:hover:bg-green-950 dark:hover:text-green-300">
+                          <Button variant="ghost" size="icon" asChild className="h-8 w-8 shrink-0 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800 hover:scale-110 transition-all duration-200 dark:border-green-500 dark:text-green-400 dark:hover:bg-green-950 dark:hover:text-green-300">
                             <a href={`https://wa.me/${getPhoneDigits(client.phone)}`} target="_blank" rel="noreferrer" aria-label="Chamar no WhatsApp">
                               <WhatsAppIcon className="h-4 w-4" />
                             </a>
@@ -145,22 +196,17 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" asChild>
+                        <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/90 transition-all duration-200">
                           <Link href={`/dashboard/clients/${client.id}/edit`} aria-label="Editar">
                             <Pencil className="h-4 w-4" />
                           </Link>
                         </Button>
                         <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={!!deletingId}
-                              aria-label="Excluir"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <AlertDialogTrigger
+                            className={`inline-flex h-10 w-10 items-center justify-center rounded-md border-0 bg-transparent text-destructive hover:bg-destructive/10 hover:scale-110 transition-all duration-200 ${deletingId ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                            aria-label="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>

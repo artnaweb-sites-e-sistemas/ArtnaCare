@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, ExternalLink, Pencil, Trash2, Info } from "lucide-react"
+import { Plus, ExternalLink, Pencil, Trash2, Info, Search, X } from "lucide-react"
 import Link from "next/link"
 import { getSites, deleteSite, Site } from "@/lib/firebase/sites"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const loadSites = async () => {
     try {
@@ -59,6 +61,17 @@ export default function SitesPage() {
     }
   }
 
+  const filteredSites = sites.filter((site) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.trim().toLowerCase()
+    const name = (site.name || "").toLowerCase()
+    const url = (site.url || "").toLowerCase()
+    const client = (site.clientName || "").toLowerCase()
+    const type = (site.type || "").toLowerCase()
+    const status = site.status === "Healthy" ? "saudável" : site.status === "Warning" ? "aviso" : site.status === "Critical" ? "crítico" : (site.status || "").toLowerCase()
+    return name.includes(q) || url.includes(q) || client.includes(q) || type.includes(q) || status.includes(q)
+  })
+
   const statusColor = (status: string) => {
     switch (status) {
       case "Healthy": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
@@ -85,8 +98,42 @@ export default function SitesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Todos os sites</CardTitle>
-          <CardDescription>Visão geral de todos os sites monitorados pela ArtnaCare.</CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Todos os sites</CardTitle>
+              <CardDescription>
+                {searchQuery.trim() ? (
+                  <>
+                    {filteredSites.length} de {sites.length} site{sites.length !== 1 ? "s" : ""} encontrado{filteredSites.length !== 1 ? "s" : ""}
+                  </>
+                ) : (
+                  "Visão geral de todos os sites monitorados pela ArtnaCare."
+                )}
+              </CardDescription>
+            </div>
+            <div className="relative flex w-full shrink-0 items-center sm:w-72">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                type="search"
+                placeholder="Buscar nome, URL, cliente ou status..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-9 pr-9 focus-visible:ring-0 focus-visible:border-input focus-visible:outline-none"
+              />
+              {searchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar busca"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -113,8 +160,14 @@ export default function SitesPage() {
                     Nenhum site encontrado.
                   </TableCell>
                 </TableRow>
+              ) : filteredSites.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                    Nenhum site encontrado para &quot;{searchQuery}&quot;.
+                  </TableCell>
+                </TableRow>
               ) : (
-                sites.map((site) => (
+                filteredSites.map((site) => (
                   <TableRow key={site.id}>
                     <TableCell className="font-medium">
                       <Link href={`/dashboard/sites/${site.id}`} className="hover:underline">
@@ -135,10 +188,11 @@ export default function SitesPage() {
                           {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
                         </span>
                         <Popover>
-                          <PopoverTrigger asChild>
-                            <span role="button" tabIndex={0} className="inline-flex cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Ver detalhes do status">
-                              <Info className="h-4 w-4" />
-                            </span>
+                          <PopoverTrigger
+                            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground hover:text-foreground"
+                            aria-label="Ver detalhes do status"
+                          >
+                            <Info className="h-4 w-4" />
                           </PopoverTrigger>
                           <PopoverContent className="w-72 sm:w-80" align="start">
                             <p className="font-medium text-sm mb-2">Detalhes do status</p>
@@ -159,22 +213,17 @@ export default function SitesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" asChild>
+                        <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/90 transition-all duration-200">
                           <Link href={`/dashboard/sites/${site.id}/edit`} aria-label="Editar">
                             <Pencil className="h-4 w-4" />
                           </Link>
                         </Button>
                         <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={!!deletingId}
-                              aria-label="Excluir"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <AlertDialogTrigger
+                            className={`inline-flex h-10 w-10 items-center justify-center rounded-md border-0 bg-transparent text-destructive hover:bg-destructive/10 hover:scale-110 transition-all duration-200 ${deletingId ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                            aria-label="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>

@@ -20,6 +20,15 @@ export async function getSiteAdmin(id: string): Promise<Site | null> {
   return { id: doc.id, ...doc.data() } as Site;
 }
 
+export async function getSitesByClientAdmin(clientId: string): Promise<Site[]> {
+  const snapshot = await adminDb
+    .collection(SITES_COLLECTION)
+    .where("clientId", "==", clientId)
+    .get();
+  const sites = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Site));
+  return sites.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Remove chaves com valor undefined para não enviar ao Firestore (não aceita undefined). */
 function omitUndefined<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
   return Object.fromEntries(
