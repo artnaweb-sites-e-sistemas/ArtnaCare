@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         const msg = "URL do site não informada. Edite o site e preencha a URL.";
         console.error(`Site ${site.name} (${site.id}): ${msg}`);
         try {
-          await updateSiteAdmin(site.id!, { status: "Error", issues: [msg] });
+          await updateSiteAdmin(site.id!, { status: "Critical", issues: [msg] });
           await addMonitoringLogAdmin({
             siteId: site.id,
             siteName: site.name,
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         console.error(`Error checking site ${site.name}:`, error);
         try {
           await updateSiteAdmin(site.id!, {
-            status: "Error",
+            status: "Critical",
             issues,
           });
           await addMonitoringLogAdmin({
