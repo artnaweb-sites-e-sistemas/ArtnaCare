@@ -315,8 +315,9 @@ export default function DashboardPage() {
 
   const handleSyncSite = async (site: Site) => {
     if (!site.id) return
-    setSyncing(site.id)
-    setSitesInPreparing((prev) => new Set(prev).add(site.id))
+    const siteId = site.id
+    setSyncing(siteId)
+    setSitesInPreparing((prev) => new Set(prev).add(siteId))
     try {
       const res = await fetch("/api/integrations/uptimerobot/create", {
         method: "POST",
@@ -326,22 +327,22 @@ export default function DashboardPage() {
       const data = await res.json()
       if (data.monitorId) {
         const { updateSite } = await import("@/lib/firebase/sites")
-        await updateSite(site.id, { uptimerobotMonitorId: data.monitorId })
+        await updateSite(siteId, { uptimerobotMonitorId: data.monitorId })
         setArtnaSites((prev) =>
-          prev.map((s) => (s.id === site.id ? { ...s, uptimerobotMonitorId: data.monitorId } : s))
+          prev.map((s) => (s.id === siteId ? { ...s, uptimerobotMonitorId: data.monitorId } : s))
         )
         const urRes = await fetch("/api/integrations/uptimerobot")
         const urData = await urRes.json()
         if (!urData.error) setUptimeMonitors(urData.monitors || [])
         setSitesInPreparing((prev) => {
           const next = new Set(prev)
-          next.delete(site.id!)
+          next.delete(siteId)
           return next
         })
       } else if (data.error) {
         setSitesInPreparing((prev) => {
           const next = new Set(prev)
-          next.delete(site.id!)
+          next.delete(siteId)
           return next
         })
         setResultModal({
@@ -354,7 +355,7 @@ export default function DashboardPage() {
     } catch (e) {
       setSitesInPreparing((prev) => {
         const next = new Set(prev)
-        next.delete(site.id!)
+        next.delete(siteId)
         return next
       })
       setResultModal({
