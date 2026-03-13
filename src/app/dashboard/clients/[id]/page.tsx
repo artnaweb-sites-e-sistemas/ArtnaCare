@@ -1,16 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
-import { ArrowLeft, Edit, ExternalLink, Trash2, Plus, MoreHorizontal, Info } from "lucide-react"
+import { ArrowLeft, Edit, ExternalLink, Trash2, Plus, Info, Pencil } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { getClient, deleteClient, Client } from "@/lib/firebase/firestore"
 import { getSitesByClient, Site } from "@/lib/firebase/sites"
 import { formatPhoneDisplay, getPhoneDigits } from "@/lib/phone"
+import { getSiteTypeLabel } from "@/lib/site-types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+type MonitoringLog = { siteUrl: string; siteType?: string | null }
+
+function normalizeUrl(url: string): string {
+  try {
+    const u = url.startsWith("http") ? url : `https://${url}`
+    return new URL(u).href.replace(/\/$/, "").toLowerCase()
+  } catch {
+    return url.toLowerCase()
+  }
+}
 
 export default function ClientDetailPage() {
   const params = useParams()
@@ -22,6 +34,7 @@ export default function ClientDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [sites, setSites] = useState<Site[]>([])
   const [loadingSites, setLoadingSites] = useState(true)
+  const [monitoringLogs, setMonitoringLogs] = useState<MonitoringLog[]>([])
 
   useEffect(() => {
     async function load() {
@@ -54,12 +67,33 @@ export default function ClientDetailPage() {
     }
   }, [clientId])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/cron/monitoring")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.logs)) setMonitoringLogs(data.logs)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  /** Último log por URL (tipo reconhecido na URL, igual ao Monitoramento). */
+  const latestLogByUrl = useMemo(() => {
+    const map = new Map<string, MonitoringLog>()
+    for (const log of monitoringLogs) {
+      const key = normalizeUrl(log.siteUrl)
+      if (!map.has(key)) map.set(key, log)
+    }
+    return map
+  }, [monitoringLogs])
+
   const statusColor = (status: string) => {
     switch (status) {
-      case "Healthy": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-      case "Warning": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-      case "Critical": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+      case "Healthy": return "bg-emerald-100 text-emerald-800"
+      case "Warning": return "bg-amber-100 text-amber-800"
+      case "Critical": return "bg-rose-100 text-rose-800"
+      default: return "bg-slate-100 text-slate-800"
     }
   }
 
@@ -71,6 +105,16 @@ export default function ClientDetailPage() {
       case "Unknown": return "Desconhecido"
       default: return status
     }
+  }
+
+  const getSiteTypeIconPath = (siteType?: string | null): string | null => {
+    if (!siteType) return null
+    const t = siteType.toLowerCase()
+    if (t.includes("wordpress")) return "/icon/wordpress.png"
+    if (t.includes("html")) return "/icon/html 5.svg"
+    if (t.includes("woocommerce")) return "/icon/woocommerce.png"
+    if (t.includes("shopify")) return "/icon/shopify.svg"
+    return "/icon/website.svg"
   }
 
   const handleDelete = async () => {
@@ -123,10 +167,14 @@ export default function ClientDetailPage() {
               <span>•</span>
               <span>{formatPhoneDisplay(client.phone)}</span>
               <span>•</span>
-              <span className={`font-medium ${
-                client.status === "Active" ? "text-green-600 dark:text-green-400" : "text-gray-500"
-              }`}>
-                {client.status}
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  client.status === "Active"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300"
+                    : "bg-slate-100 text-slate-800 dark:bg-slate-800/70 dark:text-slate-200"
+                }`}
+              >
+                {client.status === "Active" ? "Ativo" : client.status === "Inactive" ? "Inativo" : client.status}
               </span>
             </div>
           </div>
@@ -167,8 +215,8 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Total de sites</p>
-              <p className="text-sm">{sites.length}</p>
+              <p className="text-sm font-medium text-muted-foreground">E-mail</p>
+              <p className="text-sm break-all text-muted-foreground">{client.email || "—"}</p>
             </div>
           </CardContent>
         </Card>
@@ -192,8 +240,9 @@ export default function ClientDetailPage() {
                 <TableRow>
                   <TableHead>Nome do site</TableHead>
                   <TableHead>URL</TableHead>
+                  <TableHead>Tipo de site</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ação</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -228,42 +277,110 @@ export default function ClientDetailPage() {
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const log = latestLogByUrl.get(normalizeUrl(site.url))
+                          const displayType = log?.siteType ?? site.type ?? null
+                          const iconPath = getSiteTypeIconPath(displayType)
+                          if (!iconPath) return null
+                          return (
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+                              <img
+                                src={iconPath}
+                                alt={displayType ?? "Tipo de site"}
+                                className="h-4 w-4 object-contain"
+                              />
+                            </span>
+                          )
+                        })()}
+                        {(() => {
+                          const log = latestLogByUrl.get(normalizeUrl(site.url))
+                          const displayType = log?.siteType ?? site.type ?? "—"
+                          const isWordPress = String(displayType).toLowerCase().includes("wordpress")
+                          if (isWordPress && (site.wpAdminUrl || site.url)) {
+                            return (
+                              <a
+                                href={site.wpAdminUrl?.trim() || (() => {
+                                  try {
+                                    const u = new URL(site.url.startsWith("http") ? site.url : "https://" + site.url)
+                                    return u.origin + "/wp-login.php"
+                                  } catch {
+                                    return "#"
+                                  }
+                                })()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline"
+                              >
+                                {getSiteTypeLabel(displayType)}
+                              </a>
+                            )
+                          }
+                          return (
+                            <span className="text-xs text-muted-foreground">
+                              {getSiteTypeLabel(displayType)}
+                            </span>
+                          )
+                        })()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger
+                          className="inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-muted-foreground hover:text-foreground"
+                          aria-label="Ver detalhes do status"
+                        >
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${statusColor(
+                              site.status,
+                            )}`}
+                          >
                             {statusLabel(site.status)}
+                            <Info className="h-3.5 w-3.5" />
                           </span>
-                          <Popover>
-                            <PopoverTrigger
-                              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground hover:text-foreground"
-                              aria-label="Ver detalhes do status"
-                            >
-                              <Info className="h-4 w-4" />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72 sm:w-80" align="start">
-                              <p className="font-medium text-sm mb-2">Detalhes do status</p>
-                              {site.issues && site.issues.length > 0 ? (
-                                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                  {site.issues.map((issue, i) => (
-                                    <li key={i}>{issue}</li>
-                                  ))}
-                                </ul>
-                              ) : site.status === "Healthy" ? (
-                                <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
-                              )}
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/90 transition-all duration-200">
-                          <Link href={`/dashboard/sites/${site.id}`}>
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Ver site</span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 sm:w-80" align="start">
+                          <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                          {site.issues && site.issues.length > 0 ? (
+                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                              {site.issues.map((issue, i) => (
+                                <li key={i}>{issue}</li>
+                              ))}
+                            </ul>
+                          ) : site.status === "Healthy" ? (
+                            <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Execute as verificações em Monitoramento para obter os detalhes.
+                            </p>
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          className="h-8 w-8 hover:scale-110 hover:bg-accent/90 transition-all duration-200"
+                        >
+                          <Link href={`/dashboard/sites/${site.id}/edit`} aria-label="Editar site">
+                            <Pencil className="h-4 w-4" />
                           </Link>
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          className="h-8 w-8 text-destructive hover:scale-110 hover:bg-destructive/10 transition-all duration-200"
+                        >
+                          <Link href={`/dashboard/sites/${site.id}/edit`} aria-label="Excluir site">
+                            <Trash2 className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </div>
                       </TableCell>
                     </TableRow>
                   ))

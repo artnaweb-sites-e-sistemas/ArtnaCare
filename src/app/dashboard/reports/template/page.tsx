@@ -10,11 +10,14 @@ import { toast } from "sonner"
 const PLACEHOLDERS = [
   { key: "{{clientName}}", desc: "Nome do cliente" },
   { key: "{{period}}", desc: "Período (ex: março 2026)" },
-  { key: "{{sitesTotal}}", desc: "Total de sites" },
-  { key: "{{sitesHealthy}}", desc: "Sites saudáveis" },
-  { key: "{{sitesWarning}}", desc: "Sites com avisos" },
-  { key: "{{sitesCritical}}", desc: "Sites críticos" },
+  { key: "{{sitesTotal}}", desc: "Total de sites (em relatórios individuais será sempre 1)" },
+  { key: "{{sitesHealthy}}", desc: "Sites saudáveis (em relatórios individuais, 1 ou 0)" },
+  { key: "{{sitesWarning}}", desc: "Sites com avisos (em relatórios individuais, 1 ou 0)" },
+  { key: "{{sitesCritical}}", desc: "Sites críticos (em relatórios individuais, 1 ou 0)" },
   { key: "{{uptimePercentage}}", desc: "Percentual de uptime" },
+  { key: "{{siteStatus}}", desc: "Status em texto (Saudável, Aviso, Crítico...)" },
+  { key: "{{siteUrl}}", desc: "URL do site (em relatório individual)" },
+  { key: "{{maintenanceRecordsSection}}", desc: "Tabela de ajustes/registros de manutenção do mês (tipo, descrição, realizado por, data/hora)" },
 ]
 
 export default function ReportTemplatePage() {
@@ -24,13 +27,23 @@ export default function ReportTemplatePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    fetch("/api/reports/template")
+    let mounted = true
+    const controller = new AbortController()
+    fetch("/api/reports/template", { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
-        setHtml(data.html ?? "")
+        if (mounted) setHtml(data.html ?? "")
       })
-      .catch(() => toast.error("Erro ao carregar modelo"))
-      .finally(() => setLoading(false))
+      .catch((err) => {
+        if (mounted && err?.name !== "AbortError") toast.error("Erro ao carregar modelo")
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+    return () => {
+      mounted = false
+      controller.abort()
+    }
   }, [])
 
   const handleSave = async () => {
@@ -45,6 +58,7 @@ export default function ReportTemplatePage() {
       if (!res.ok) throw new Error(data.error || "Erro ao salvar")
       toast.success("Modelo salvo com sucesso!")
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return
       toast.error(error instanceof Error ? error.message : "Erro ao salvar modelo")
     } finally {
       setSaving(false)
@@ -56,11 +70,30 @@ export default function ReportTemplatePage() {
     return html
       .replace(/\{\{clientName\}\}/g, "Cliente Exemplo")
       .replace(/\{\{period\}\}/g, "março 2026")
-      .replace(/\{\{sitesTotal\}\}/g, "5")
-      .replace(/\{\{sitesHealthy\}\}/g, "3")
-      .replace(/\{\{sitesWarning\}\}/g, "1")
-      .replace(/\{\{sitesCritical\}\}/g, "1")
-      .replace(/\{\{uptimePercentage\}\}/g, "98")
+      .replace(/\{\{sitesTotal\}\}/g, "1")
+      .replace(/\{\{sitesHealthy\}\}/g, "1")
+      .replace(/\{\{sitesWarning\}\}/g, "0")
+      .replace(/\{\{sitesCritical\}\}/g, "0")
+      .replace(/\{\{uptimePercentage\}\}/g, "99.2")
+      .replace(/\{\{siteStatus\}\}/g, "Saudável")
+      .replace(/\{\{siteUrl\}\}/g, "https://exemplo.com.br")
+      .replace(
+        /\{\{maintenanceRecordsSection\}\}/g,
+        `<div style="margin-top: 12px; overflow-x: auto;">
+    <table class="stats-grid" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <thead><tr>
+        <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; font-weight: 600;">Tipo</th>
+        <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; font-weight: 600;">Descrição</th>
+        <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; font-weight: 600;">Realizado por</th>
+        <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: right; font-weight: 600;">Data e hora</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding: 10px 12px; border: 1px solid #e5e7eb;"><span style="background: #e5e7eb; color: #374151; padding: 2px 8px; border-radius: 999px; font-size: 11px;">Atualização</span></td><td style="padding: 10px 12px; border: 1px solid #e5e7eb;">Atualização do WordPress e plugins</td><td style="padding: 10px 12px; border: 1px solid #e5e7eb;">João Silva</td><td style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: right;">05/03/2026, 14:30</td></tr>
+        <tr><td style="padding: 10px 12px; border: 1px solid #e5e7eb;"><span style="background: #e5e7eb; color: #374151; padding: 2px 8px; border-radius: 999px; font-size: 11px;">Backup</span></td><td style="padding: 10px 12px; border: 1px solid #e5e7eb;">Backup semanal realizado</td><td style="padding: 10px 12px; border: 1px solid #e5e7eb;">Sistema</td><td style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: right;">01/03/2026, 03:00</td></tr>
+      </tbody>
+    </table>
+  </div>`
+      )
   }, [html])
 
   const insertPlaceholder = (placeholder: string) => {

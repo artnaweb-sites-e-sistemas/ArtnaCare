@@ -40,7 +40,10 @@ export default function EditSitePage() {
     return (
       <div className="space-y-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/dashboard/sites"><ArrowLeft className="h-4 w-4" /></Link>
+          <Link href="/dashboard/sites">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Voltar para sites</span>
+          </Link>
         </Button>
         <p className="text-muted-foreground">Site not found.</p>
       </div>
@@ -51,9 +54,9 @@ export default function EditSitePage() {
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href={`/dashboard/sites/${siteId}`}>
+          <Link href={site.clientId ? `/dashboard/clients/${site.clientId}` : "/dashboard/sites"}>
             <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Back to Site</span>
+            <span className="sr-only">Voltar para o cliente</span>
           </Link>
         </Button>
         <div>

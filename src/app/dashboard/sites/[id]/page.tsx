@@ -8,19 +8,21 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
-import { ArrowLeft, Edit, ExternalLink, Trash2, Globe, Shield, Clock, Activity, Plus, AlertTriangle, Info } from "lucide-react"
+import { ArrowLeft, Edit, ExternalLink, Trash2, Globe, Shield, Clock, Activity, Plus, AlertTriangle, Info, Send, RotateCw } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { getSite, deleteSite, Site } from "@/lib/firebase/sites"
-import { getMaintenanceLogs, addMaintenanceLog, MaintenanceEntry } from "@/lib/firebase/maintenance"
+import { getSiteTypeLabel } from "@/lib/site-types"
+import { getMaintenanceLogs, addMaintenanceLog, deleteMaintenanceLog, MaintenanceEntry } from "@/lib/firebase/maintenance"
 import { useAuth } from "@/hooks/useAuth"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { toast } from "sonner"
 
 const MAINTENANCE_TYPES: { value: MaintenanceEntry["type"]; label: string }[] = [
   { value: "Update", label: "Atualização" },
   { value: "Backup", label: "Backup" },
   { value: "Security", label: "Segurança" },
   { value: "Performance", label: "Performance" },
-  { value: "Other", label: "Outro" },
+  { value: "Other", label: "Outros" },
 ]
 
 function formatDate(value: MaintenanceEntry["createdAt"]) {
@@ -71,6 +73,10 @@ export default function SiteDetailPage() {
   const [monitoringHistoryLoading, setMonitoringHistoryLoading] = useState(false)
   const [monitoringHistoryVisible, setMonitoringHistoryVisible] = useState(5)
   const [maintenanceLogsVisible, setMaintenanceLogsVisible] = useState(5)
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const [sendingReport, setSendingReport] = useState(false)
+  const [scanningSite, setScanningSite] = useState(false)
 
   useEffect(() => {
     setMonitoringHistoryVisible(5)
@@ -102,7 +108,8 @@ export default function SiteDetailPage() {
     setMonitoringHistoryLoading(true)
     const siteId = site.id
     const siteUrl = site.url
-    fetch("/api/cron/monitoring")
+    const controller = new AbortController()
+    fetch("/api/cron/monitoring", { signal: controller.signal })
       .then((res) => res.json())
       .then((data: { logs?: MonitoringLogEntry[] }) => {
         const logs = data.logs ?? []
@@ -116,8 +123,11 @@ export default function SiteDetailPage() {
         )
         setMonitoringHistory(forSite)
       })
-      .catch(console.error)
+      .catch((err) => {
+        if ((err as Error)?.name !== "AbortError") console.error(err)
+      })
       .finally(() => setMonitoringHistoryLoading(false))
+    return () => controller.abort()
   }, [site?.id, site?.url])
 
   useEffect(() => {
@@ -159,6 +169,91 @@ export default function SiteDetailPage() {
     }
   }
 
+  const handleDeleteMaintenanceLog = async (entryId: string | undefined) => {
+    if (!entryId) return
+    if (!confirm("Remover este registro de manutenção?")) return
+    setDeletingLogId(entryId)
+    try {
+      await deleteMaintenanceLog(entryId)
+      setMaintenanceLogs((prev) => prev.filter((e) => e.id !== entryId))
+      toast.success("Registro removido.")
+    } catch (error) {
+      console.error("Erro ao remover registro:", error)
+      toast.error("Não foi possível remover o registro.")
+    } finally {
+      setDeletingLogId(null)
+    }
+  }
+
+  const handleSendReport = async () => {
+    if (!site?.clientId || !site?.id) return
+    setSendingReport(true)
+    try {
+      const res = await fetch("/api/cron/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: site.clientId, siteId: site.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.details || data.error || "Erro ao enviar relatório")
+      if (data.generated === 0) {
+        toast.warning("Nenhum relatório gerado. Verifique se o cliente tem e-mail cadastrado.")
+      } else if (data.emailSent === false) {
+        toast.warning("Relatório gerado, mas o e-mail não foi enviado. Veja Relatórios.")
+      } else {
+        toast.success("Relatório enviado por e-mail ao cliente.")
+      }
+      setReportDialogOpen(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar relatório")
+    } finally {
+      setSendingReport(false)
+    }
+  }
+
+  const loadMonitoringHistory = () => {
+    if (!site?.id || !site?.url) return
+    setMonitoringHistoryLoading(true)
+    const norm = (url: string) => {
+      const u = (url || "").trim().toLowerCase().replace(/\/$/, "")
+      return u.startsWith("http") ? u : `https://${u}`
+    }
+    const current = norm(site.url)
+    fetch("/api/cron/monitoring")
+      .then((res) => res.json())
+      .then((data: { logs?: MonitoringLogEntry[] }) => {
+        const logs = data.logs ?? []
+        const forSite = logs.filter(
+          (log) => log.siteId === site.id || (log.siteUrl && norm(log.siteUrl) === current)
+        )
+        setMonitoringHistory(forSite)
+      })
+      .catch(() => setMonitoringHistory([]))
+      .finally(() => setMonitoringHistoryLoading(false))
+  }
+
+  const handleRunScan = async () => {
+    if (!siteId) return
+    setScanningSite(true)
+    try {
+      const res = await fetch("/api/cron/monitoring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ siteId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Falha ao verificar")
+      const updated = await getSite(siteId)
+      setSite(updated)
+      loadMonitoringHistory()
+      toast.success("Varredura concluída. Dados atualizados.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível executar a varredura.")
+    } finally {
+      setScanningSite(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -178,6 +273,13 @@ export default function SiteDetailPage() {
     )
   }
 
+  function normalizeDisplayUrl(url: string) {
+    const u = (url || "").trim()
+    if (!u) return ""
+    const withProtocol = /^https?:\/\//i.test(u) ? u : "https://" + u
+    return withProtocol.endsWith("/") ? withProtocol : withProtocol + "/"
+  }
+
   const statusColor = (status: string) => {
     switch (status) {
       case "Healthy": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
@@ -192,15 +294,21 @@ export default function SiteDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard/sites">
+            <Link href={site.clientId ? `/dashboard/clients/${site.clientId}` : "/dashboard/sites"}>
               <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Voltar para o cliente</span>
             </Link>
           </Button>
           <div>
             <h2 className="text-2xl font-bold tracking-tight">{site.name}</h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-              <a href={site.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-                {site.url}
+              <a
+                href={normalizeDisplayUrl(site.url)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-blue-600 hover:underline"
+              >
+                {normalizeDisplayUrl(site.url)}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <span>•</span>
@@ -237,18 +345,59 @@ export default function SiteDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/sites/${siteId}/edit`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
+          <Button
+            variant="outline"
+            onClick={handleRunScan}
+            disabled={scanningSite}
+            title="Executar varredura do site (verificação de saúde)"
+            aria-label="Atualizar / executar varredura do site"
+          >
+            <RotateCw className={`mr-2 h-4 w-4 ${scanningSite ? "animate-spin" : ""}`} />
+            {scanningSite ? "Verificando..." : "Atualizar"}
+          </Button>
+          {site.clientId && (
+            <Button variant="outline" onClick={() => setReportDialogOpen(true)}>
+              <Send className="mr-2 h-4 w-4" />
+              Enviar relatório
+            </Button>
+          )}
+          <Button variant="outline" size="icon" asChild title="Editar">
+            <Link href={`/dashboard/sites/${siteId}/edit`} aria-label="Editar">
+              <Edit className="h-4 w-4" />
             </Link>
           </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {deleting ? "Excluindo..." : "Excluir"}
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Excluir"
+            aria-label={deleting ? "Excluindo..." : "Excluir"}
+          >
+            {deleting ? <RotateCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </Button>
         </div>
       </div>
+
+      {/* Dialog: confirmar envio de relatório */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar relatório deste site para o cliente?</DialogTitle>
+            <DialogDescription>
+              O relatório do site &quot;{site.name}&quot; será gerado e enviado por e-mail ao cliente. Confirme para continuar.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDialogOpen(false)} disabled={sendingReport}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSendReport} disabled={sendingReport}>
+              {sendingReport ? "Enviando..." : "Enviar relatório"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Avisos/Críticos - detalhes */}
       {site.issues && site.issues.length > 0 && (
@@ -281,7 +430,7 @@ export default function SiteDetailPage() {
             <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Tipo</p>
-              <p className="text-sm font-medium">{site.type}</p>
+              <p className="text-sm font-medium">{getSiteTypeLabel(site.type)}</p>
             </div>
           </CardContent>
         </Card>
@@ -346,6 +495,22 @@ export default function SiteDetailPage() {
                       <span className="text-muted-foreground">•</span>
                       <span className="text-muted-foreground">{entry.performedBy}</span>
                       <span className="text-muted-foreground text-xs ml-auto">{formatDate(entry.createdAt)}</span>
+                      {entry.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                          aria-label="Remover registro"
+                          onClick={() => handleDeleteMaintenanceLog(entry.id)}
+                          disabled={deletingLogId === entry.id}
+                        >
+                          {deletingLogId === entry.id ? (
+                            <span className="text-xs">...</span>
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                     <p className="text-muted-foreground">{entry.description}</p>
                   </li>

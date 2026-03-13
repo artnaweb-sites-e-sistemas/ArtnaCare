@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório de manutenção — {{period}}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #111827;
+    }
+    .wrapper { width: 100%; padding: 24px 0; }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+    .header {
+      padding: 24px 24px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: linear-gradient(135deg, #0f766e, #22c55e);
+      color: #ecfdf5;
+    }
+    .header-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .header-subtitle { font-size: 13px; margin: 0; opacity: 0.9; }
+    .badge {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.18);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .content { padding: 24px; font-size: 14px; line-height: 1.6; background: #ffffff; }
+    .section-title { font-size: 15px; font-weight: 600; margin: 20px 0 6px; color: #111827; }
+    .muted { color: #6b7280; }
+    .highlight-green { color: #15803d; font-weight: 600; }
+    .highlight-amber { color: #92400e; font-weight: 500; }
+    .highlight-red { color: #b91c1c; font-weight: 500; }
+
+    .stats-grid {
+      margin-top: 12px;
+      display: table;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .stats-grid-row { display: table-row; }
+    .stats-grid-cell {
+      display: table-cell;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      font-size: 13px;
+    }
+    .stats-label { font-weight: 500; color: #374151; width: 55%; }
+    .stats-value { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .pill-green { background: #dcfce7; color: #166534; }
+    .pill-amber { background: #fef3c7; color: #92400e; }
+    .pill-red { background: #fee2e2; color: #b91c1c; }
+    .pill-gray { background: #e5e7eb; color: #374151; }
+
+    .list { margin: 8px 0 0; padding-left: 18px; color: #4b5563; }
+    .list li { margin: 2px 0; }
+    .divider { margin: 24px 0; border-top: 1px solid #e5e7eb; }
+    .footer {
+      padding: 16px 24px 20px;
+      font-size: 12px;
+      color: #6b7280;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1 class="header-title">Relatório de Manutenção — {{period}}</h1>
+        <p class="header-subtitle">
+          Olá {{clientName}}, este é o resumo do trabalho de monitoramento e gestão
+          realizado pela equipe ArtnaCare neste site.
+        </p>
+        <div class="badge">Gestão contínua de performance, segurança e disponibilidade</div>
+      </div>
+
+      <div class="content">
+        <p>
+          Nosso objetivo é garantir que o seu site permaneça
+          <strong>seguro, estável e disponível</strong>, atuando de forma preventiva
+          e reagindo rapidamente sempre que identificamos qualquer risco.
+        </p>
+
+        <h2 class="section-title">Visão geral deste site no mês</h2>
+        <p class="muted">
+          Abaixo está um panorama técnico do site que está sob gestão neste período.
+        </p>
+
+        <div class="stats-grid">
+          <div class="stats-grid-row">
+            <div class="stats-grid-cell stats-label">Ambiente monitorado</div>
+            <div class="stats-grid-cell stats-value"><strong>{{siteUrl}}</strong></div>
+          </div>
+          <div class="stats-grid-row">
+            <div class="stats-grid-cell stats-label">Classificação de saúde neste mês</div>
+            <div class="stats-grid-cell stats-value">
+              <span class="pill pill-gray">{{siteStatus}}</span>
+            </div>
+          </div>
+          <div class="stats-grid-row">
+            <div class="stats-grid-cell stats-label">Disponibilidade do site no período</div>
+            <div class="stats-grid-cell stats-value">
+              <span class="highlight-green">{{uptimePercentage}}%</span>
+            </div>
+          </div>
+        </div>
+
+        <p style="margin-top: 12px;">
+          Mesmo quando o site entra em estado de
+          <span class="highlight-amber">aviso</span> ou
+          <span class="highlight-red">crítico</span>, isso significa que
+          <strong>nosso monitoramento identificou o problema e nossa equipe atuou</strong>
+          para corrigir ou mitigar o impacto o mais rápido possível.
+        </p>
+
+        <div class="divider"></div>
+
+        <h2 class="section-title">Ajustes realizados neste mês</h2>
+        <p class="muted">
+          Registro das ações de manutenção realizadas no site no período do relatório (tipo, descrição, realizado por e data/hora).
+        </p>
+        {{maintenanceRecordsSection}}
+
+        <div class="divider"></div>
+
+        <h2 class="section-title">O que cuidamos por você neste site</h2>
+        <ul class="list">
+          <li>Monitoramos <strong>disponibilidade</strong> e alertas de instabilidade 24/7.</li>
+          <li>Avaliamos <strong>tempo de resposta</strong> e eventuais quedas de performance.</li>
+          <li>Acompanhamos <strong>segurança</strong>: SSL, sinais de malware e vulnerabilidades comuns.</li>
+          <li>Verificamos <strong>atualizações importantes</strong> de WordPress, temas e plugins (quando aplicável).</li>
+          <li>Centralizamos os alertas e transformamos em ações concretas, para que você não precise se preocupar com isso.</li>
+        </ul>
+
+        <p style="margin-top: 10px;">
+          Em resumo: <strong>você recebe um site estável e acompanhado</strong>,
+          enquanto nossa equipe lida com os detalhes técnicos e com os imprevistos do dia a dia.
+        </p>
+
+        <div class="divider"></div>
+
+        <h2 class="section-title">Como ler este relatório</h2>
+        <ul class="list">
+          <li>
+            Uma disponibilidade acima de <strong>97–99%</strong> indica que o site ficou
+            <strong>online praticamente o tempo todo</strong>.
+          </li>
+          <li>
+            A indicação de "Aviso" ou "Crítico" mostra que
+            <strong>os alertas da ArtnaCare entraram em ação</strong> e que estamos acompanhando de perto qualquer risco.
+          </li>
+          <li>
+            Caso algo exija uma decisão sua (investimento extra, mudança de estratégia, etc.),
+            <strong>entraremos diretamente em contato</strong> com recomendações claras.
+          </li>
+        </ul>
+
+        <p style="margin-top: 12px;">
+          Se quiser entender algum ponto em mais detalhes, basta responder este e-mail que teremos prazer em explicar
+          o que foi feito e os próximos passos recomendados para este site.
+        </p>
+      </div>
+
+      <div class="footer">
+        <p style="margin: 0 0 4px;">
+          Obrigado por confiar na ArtnaCare para a gestão e manutenção do seu site.
+        </p>
+        <p style="margin: 0;">
+          Seguimos monitorando tudo em segundo plano, para que você possa focar no seu negócio.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

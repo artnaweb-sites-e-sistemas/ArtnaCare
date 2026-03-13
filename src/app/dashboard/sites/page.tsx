@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, ExternalLink, Pencil, Trash2, Info, Search, X } from "lucide-react"
 import Link from "next/link"
 import { getSites, deleteSite, Site } from "@/lib/firebase/sites"
+import { getSiteTypeLabel } from "@/lib/site-types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import {
@@ -61,7 +62,7 @@ export default function SitesPage() {
     }
   }
 
-  const filteredSites = sites.filter((site) => {
+const filteredSites = sites.filter((site) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.trim().toLowerCase()
     const name = (site.name || "").toLowerCase()
@@ -74,11 +75,21 @@ export default function SitesPage() {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case "Healthy": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-      case "Warning": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-      case "Critical": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+      case "Healthy": return "bg-emerald-100 text-emerald-800"
+      case "Warning": return "bg-amber-100 text-amber-800"
+      case "Critical": return "bg-rose-100 text-rose-800"
+      default: return "bg-slate-100 text-slate-800"
     }
+  }
+
+  const getSiteTypeIconPath = (siteType?: string | null): string | null => {
+    if (!siteType) return null
+    const t = siteType.toLowerCase()
+    if (t.includes("wordpress")) return "/icon/wordpress.png"
+    if (t.includes("html")) return "/icon/html 5.svg"
+    if (t.includes("woocommerce")) return "/icon/woocommerce.png"
+    if (t.includes("shopify")) return "/icon/shopify.svg"
+    return "/icon/website.svg"
   }
 
   return (
@@ -181,35 +192,66 @@ export default function SitesPage() {
                       </a>
                     </TableCell>
                     <TableCell>{site.clientName || "—"}</TableCell>
-                    <TableCell>{site.type}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColor(site.status)}`}>
-                          {site.status === "Healthy" ? "Saudável" : site.status === "Warning" ? "Aviso" : site.status === "Critical" ? "Crítico" : site.status === "Unknown" ? "Desconhecido" : site.status}
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const iconPath = getSiteTypeIconPath(site.type)
+                          if (!iconPath) return null
+                          return (
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+                              <img
+                                src={iconPath}
+                                alt={site.type ?? "Tipo de site"}
+                                className="h-4 w-4 object-contain"
+                              />
+                            </span>
+                          )
+                        })()}
+                        <span className="text-xs text-muted-foreground">
+                          {getSiteTypeLabel(site.type)}
                         </span>
-                        <Popover>
-                          <PopoverTrigger
-                            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted-foreground hover:text-foreground"
-                            aria-label="Ver detalhes do status"
-                          >
-                            <Info className="h-4 w-4" />
-                          </PopoverTrigger>
-                          <PopoverContent className="w-72 sm:w-80" align="start">
-                            <p className="font-medium text-sm mb-2">Detalhes do status</p>
-                            {site.issues && site.issues.length > 0 ? (
-                              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                {site.issues.map((issue, i) => (
-                                  <li key={i}>{issue}</li>
-                                ))}
-                              </ul>
-                            ) : site.status === "Healthy" ? (
-                              <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">Execute as verificações em Monitoramento para obter os detalhes.</p>
-                            )}
-                          </PopoverContent>
-                        </Popover>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger
+                          className="inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-muted-foreground hover:text-foreground"
+                          aria-label="Ver detalhes do status"
+                        >
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${statusColor(
+                              site.status,
+                            )}`}
+                          >
+                            {site.status === "Healthy"
+                              ? "Saudável"
+                              : site.status === "Warning"
+                                ? "Aviso"
+                                : site.status === "Critical"
+                                  ? "Crítico"
+                                  : site.status === "Unknown"
+                                    ? "Desconhecido"
+                                    : site.status}
+                            <Info className="h-3.5 w-3.5" />
+                          </span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 sm:w-80" align="start">
+                          <p className="font-medium text-sm mb-2">Detalhes do status</p>
+                          {site.issues && site.issues.length > 0 ? (
+                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                              {site.issues.map((issue, i) => (
+                                <li key={i}>{issue}</li>
+                              ))}
+                            </ul>
+                          ) : site.status === "Healthy" ? (
+                            <p className="text-sm text-muted-foreground">Nenhum problema detectado.</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Execute as verificações em Monitoramento para obter os detalhes.
+                            </p>
+                          )}
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

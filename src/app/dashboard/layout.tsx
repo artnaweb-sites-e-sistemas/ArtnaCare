@@ -18,7 +18,7 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
       </div>
     );
@@ -32,12 +32,12 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex bg-slate-50 min-h-screen font-sans">
+    <div className="flex min-h-screen font-sans bg-background">
       <Sidebar />
       {/* TODO: Add Mobile sidebar overlay functionality if needed */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-muted/30">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

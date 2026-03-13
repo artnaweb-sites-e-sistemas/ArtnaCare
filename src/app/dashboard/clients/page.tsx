@@ -188,10 +188,14 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell>{client.id ? (sitesCountByClientId[client.id] ?? 0) : 0}</TableCell>
                     <TableCell>
-                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                        client.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-                      }`}>
-                        {client.status}
+                      <span
+                        className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                          client.status === "Active"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300"
+                            : "bg-slate-100 text-slate-800 dark:bg-slate-800/70 dark:text-slate-200"
+                        }`}
+                      >
+                        {client.status === "Active" ? "Ativo" : client.status === "Inactive" ? "Inativo" : client.status}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">

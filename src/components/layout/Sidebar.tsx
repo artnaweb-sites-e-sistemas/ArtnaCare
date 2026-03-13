@@ -8,7 +8,6 @@ import { Activity, Users, Globe, FileText } from "lucide-react";
 const navItems = [
   { href: "/dashboard", label: "Monitoramento", icon: Activity },
   { href: "/dashboard/clients", label: "Clientes", icon: Users },
-  { href: "/dashboard/sites", label: "Sites", icon: Globe },
   { href: "/dashboard/reports", label: "Relatórios", icon: FileText },
 ];
 

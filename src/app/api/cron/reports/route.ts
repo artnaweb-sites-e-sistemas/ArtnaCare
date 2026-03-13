@@ -1,25 +1,92 @@
+import * as admin from "firebase-admin";
 import { NextResponse } from "next/server";
 import { getClientsAdmin } from "@/lib/firebase/admin-clients";
 import { getSitesByClientAdmin } from "@/lib/firebase/admin-sites";
+import { getMaintenanceLogsAdmin, type MaintenanceEntryAdmin } from "@/lib/firebase/admin-maintenance";
 import { createReportAdmin } from "@/lib/firebase/admin-reports";
 import { getReportTemplateAdmin } from "@/lib/firebase/admin-report-template";
 import { calculateStatus } from "@/lib/status-calculator";
 import { generateReportEmailHtml, sendEmail } from "@/lib/email";
 import { generatePdfFromHtml } from "@/lib/pdf";
 
+const TYPE_LABELS: Record<MaintenanceEntryAdmin["type"], string> = {
+  Update: "Atualização",
+  Backup: "Backup",
+  Security: "Segurança",
+  Performance: "Performance",
+  Other: "Outros",
+};
+
+function formatMaintenanceDate(t: admin.firestore.Timestamp | Date): string {
+  if (typeof (t as admin.firestore.Timestamp).toDate === "function")
+    return (t as admin.firestore.Timestamp).toDate().toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  if (t instanceof Date) return t.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return "";
+}
+
+function buildMaintenanceRecordsSectionHtml(entries: MaintenanceEntryAdmin[]): string {
+  if (entries.length === 0) {
+    return `<p class="muted" style="color: #6b7280; font-size: 14px; margin: 0;">Nenhum registro de manutenção lançado para este site neste mês.</p>`;
+  }
+  const rows = entries
+    .map(
+      (e) => `
+    <tr>
+      <td class="stats-grid-cell" style="padding: 10px 12px; border: 1px solid #e5e7eb; font-size: 13px; vertical-align: top;">
+        <span class="pill pill-gray" style="display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; background: #e5e7eb; color: #374151;">${TYPE_LABELS[e.type]}</span>
+      </td>
+      <td class="stats-grid-cell" style="padding: 10px 12px; border: 1px solid #e5e7eb; font-size: 13px; color: #374151;">${escapeHtml(e.description)}</td>
+      <td class="stats-grid-cell" style="padding: 10px 12px; border: 1px solid #e5e7eb; font-size: 13px; color: #6b7280;">${escapeHtml(e.performedBy)}</td>
+      <td class="stats-grid-cell stats-value" style="padding: 10px 12px; border: 1px solid #e5e7eb; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; color: #6b7280;">${formatMaintenanceDate(e.createdAt)}</td>
+    </tr>`
+    )
+    .join("");
+  return `
+  <div style="margin-top: 12px; overflow-x: auto;">
+    <table class="stats-grid" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <thead>
+        <tr>
+          <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; color: #374151;">Tipo</th>
+          <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; color: #374151;">Descrição</th>
+          <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; color: #374151;">Realizado por</th>
+          <th style="padding: 10px 12px; border: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #374151;">Data e hora</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 /**
  * POST /api/cron/reports
- * Gera relatórios mensais. Se clientId no body, gera apenas para esse cliente.
+ * Gera relatórios mensais.
+ * - Sem body: roda para todos os clientes ativos.
+ * - { clientId }: gera consolidado para um cliente (todos os sites).
+ * - { clientId, siteId }: gera relatório individual apenas para um site daquele cliente.
  */
 export async function POST(request: Request) {
   try {
-    let body: { clientId?: string } = {};
+    let body: { clientId?: string; siteId?: string } = {};
     try {
       body = await request.json().catch(() => ({}));
     } catch {
       // ignore
     }
-    const { clientId: singleClientId } = body;
+    const { clientId: singleClientId, siteId } = body;
 
     const clients = await getClientsAdmin();
     let activeClients = clients.filter((c) => (c.status ?? "Active") === "Active");
@@ -33,13 +100,20 @@ export async function POST(request: Request) {
     for (const client of activeClients) {
       if (!client.id || !client.email?.trim()) continue;
 
-      const sites = await getSitesByClientAdmin(client.id);
+      let sites = await getSitesByClientAdmin(client.id);
+
+      // Se um site específico foi solicitado, filtra apenas ele
+      if (siteId) {
+        sites = sites.filter((s) => s.id === siteId);
+      }
+
       if (sites.length === 0) continue;
 
       let sitesHealthy = 0;
       let sitesWarning = 0;
       let sitesCritical = 0;
       let totalUptimeSum = 0;
+      let lastSiteStatus: "Healthy" | "Warning" | "Critical" | "Unknown" = "Unknown";
 
       // 2. Coletar dados de monitoramento do último mês
       for (const site of sites) {
@@ -60,6 +134,7 @@ export async function POST(request: Request) {
         };
 
         const status = calculateStatus(mockMonitoringResult);
+        lastSiteStatus = status.status;
 
         if (status.status === "Healthy") sitesHealthy++;
         else if (status.status === "Warning") sitesWarning++;
@@ -69,7 +144,22 @@ export async function POST(request: Request) {
       }
 
       const uptimePercentage = Math.round(totalUptimeSum / sites.length);
+      const siteStatusLabel =
+        lastSiteStatus === "Healthy"
+          ? "Saudável"
+          : lastSiteStatus === "Warning"
+          ? "Aviso"
+          : lastSiteStatus === "Critical"
+          ? "Crítico"
+          : "Desconhecido";
       const period = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const siteIds = sites.map((s) => s.id).filter(Boolean) as string[];
+      const maintenanceLogs = await getMaintenanceLogsAdmin(siteIds, startOfMonth, endOfMonth);
+      const maintenanceRecordsSection = buildMaintenanceRecordsSectionHtml(maintenanceLogs);
 
       const reportTemplateData = {
         clientName: client.name,
@@ -79,6 +169,9 @@ export async function POST(request: Request) {
         sitesWarning,
         sitesCritical,
         uptimePercentage,
+        siteStatus: siteStatusLabel,
+        siteUrl: sites[0]?.url ?? "",
+        maintenanceRecordsSection,
       };
 
       const templateHtml = await getReportTemplateAdmin();

@@ -63,6 +63,10 @@ export interface ReportData {
   sitesWarning: number;
   sitesCritical: number;
   uptimePercentage: number;
+  siteStatus?: string;
+  siteUrl?: string;
+  /** HTML da seção "Ajustes realizados neste mês" (registros de manutenção). */
+  maintenanceRecordsSection?: string;
 }
 
 /**
@@ -128,7 +132,10 @@ export function applyReportTemplate(templateHtml: string, data: ReportData): str
     .replace(/\{\{sitesHealthy\}\}/g, String(data.sitesHealthy))
     .replace(/\{\{sitesWarning\}\}/g, String(data.sitesWarning))
     .replace(/\{\{sitesCritical\}\}/g, String(data.sitesCritical))
-    .replace(/\{\{uptimePercentage\}\}/g, String(data.uptimePercentage));
+    .replace(/\{\{uptimePercentage\}\}/g, String(data.uptimePercentage))
+    .replace(/\{\{siteStatus\}\}/g, data.siteStatus ?? "")
+    .replace(/\{\{siteUrl\}\}/g, data.siteUrl ?? "")
+    .replace(/\{\{maintenanceRecordsSection\}\}/g, data.maintenanceRecordsSection ?? "");
 }
 
 /**

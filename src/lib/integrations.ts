@@ -22,13 +22,20 @@ export async function getUptimeRobotMonitors() {
         api_key: apiKey,
         format: "json",
         logs: 1,
+        logs_limit: 90,
+        all_time_uptime_ratio: 1,
         response_times: 1,
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (data.stat === "fail") {
+      const msg = data.error?.message || data.error?.msg || "UptimeRobot retornou erro";
+      return { error: msg, monitors: [] };
+    }
     return { error: null, monitors: data.monitors || [] };
   } catch (error) {
-    return { error: "Failed to fetch UptimeRobot data", monitors: [] };
+    const msg = error instanceof Error ? error.message : "Erro de rede";
+    return { error: `Falha ao buscar UptimeRobot: ${msg}`, monitors: [] };
   }
 }
 

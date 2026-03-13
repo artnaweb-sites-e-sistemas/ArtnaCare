@@ -30,6 +30,10 @@ export interface Site {
   wpAdminUrl?: string;
   wpAdminUser?: string;
   wpAdminPassword?: string;
+  wpLoginPassword?: string;
+  serverLoginUrl?: string;
+  serverLoginUser?: string;
+  serverLoginPassword?: string;
   reportEmail?: string;
   uptimerobotMonitorId?: string;
   createdAt?: Timestamp | Date;
@@ -73,21 +77,34 @@ export async function getSite(id: string): Promise<Site | null> {
 
 export async function createSite(siteData: Omit<Site, "id" | "createdAt" | "updatedAt">): Promise<string> {
   const sitesRef = collection(db, SITES_COLLECTION);
-  const newDoc = await addDoc(sitesRef, {
-    ...siteData,
+  const payload: Record<string, unknown> = {
+    name: siteData.name,
+    url: siteData.url,
+    clientId: siteData.clientId,
+    type: siteData.type,
     status: siteData.status || "Unknown",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+  const optionalKeys: (keyof Site)[] = [
+    "clientName", "reportEmail", "wpAdminUrl", "wpAdminUser", "wpAdminPassword",
+    "wpLoginPassword", "serverLoginUrl", "serverLoginUser", "serverLoginPassword",
+  ];
+  for (const key of optionalKeys) {
+    const value = siteData[key as keyof typeof siteData];
+    if (value !== undefined && value !== "") payload[key] = value;
+  }
+  const newDoc = await addDoc(sitesRef, payload);
   return newDoc.id;
 }
 
 export async function updateSite(id: string, siteData: Partial<Site>): Promise<void> {
   const docRef = doc(db, SITES_COLLECTION, id);
-  await updateDoc(docRef, {
-    ...siteData,
-    updatedAt: serverTimestamp(),
-  });
+  const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  for (const [key, value] of Object.entries(siteData)) {
+    if (value !== undefined) payload[key] = value;
+  }
+  await updateDoc(docRef, payload);
 }
 
 export async function deleteSite(id: string): Promise<void> {

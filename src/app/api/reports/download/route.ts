@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getClientsAdmin } from "@/lib/firebase/admin-clients";
 import { getSitesByClientAdmin } from "@/lib/firebase/admin-sites";
+import { getReportTemplateAdmin } from "@/lib/firebase/admin-report-template";
 import { calculateStatus } from "@/lib/status-calculator";
 import { generateReportEmailHtml } from "@/lib/email";
-import { getReportTemplateAdmin } from "@/lib/firebase/admin-report-template";
 import { generatePdfFromHtml } from "@/lib/pdf";
 
 /**
@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     let sitesWarning = 0;
     let sitesCritical = 0;
     let totalUptimeSum = 0;
+    let lastSiteStatus: "Healthy" | "Warning" | "Critical" | "Unknown" = "Unknown";
 
     for (const site of sites) {
       if (!site.id) continue;
@@ -57,6 +58,7 @@ export async function GET(request: Request) {
         siteType: site.type === "WordPress" ? "WordPress" : "HTML",
       };
       const status = calculateStatus(mockMonitoringResult);
+      lastSiteStatus = status.status;
       if (status.status === "Healthy") sitesHealthy++;
       else if (status.status === "Warning") sitesWarning++;
       else sitesCritical++;
@@ -64,6 +66,14 @@ export async function GET(request: Request) {
     }
 
     const uptimePercentage = Math.round(totalUptimeSum / sites.length);
+    const siteStatusLabel =
+      lastSiteStatus === "Healthy"
+        ? "Saudável"
+        : lastSiteStatus === "Warning"
+          ? "Aviso"
+          : lastSiteStatus === "Critical"
+            ? "Crítico"
+            : "Desconhecido";
     const reportData = {
       clientName: client.name,
       period,
@@ -72,25 +82,43 @@ export async function GET(request: Request) {
       sitesWarning,
       sitesCritical,
       uptimePercentage,
+      siteStatus: siteStatusLabel,
+      siteUrl: sites[0]?.url ?? "",
+      maintenanceRecordsSection: "",
     };
 
     const templateHtml = await getReportTemplateAdmin();
     const htmlContent = generateReportEmailHtml(reportData, templateHtml);
-    const pdfBuffer = await generatePdfFromHtml(htmlContent);
 
-    const filename = `ArtnaCare_Relatorio_${client.name.replace(/\s+/g, "_")}_${period.replace(/\s+/g, "_")}.pdf`;
+    const rawName = `${client.name.replace(/\s+/g, "_")}_${period.replace(/\s+/g, "_")}`;
+    const baseFilename = rawName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u201c\u201d\u2018\u2019]/g, "")
+      .replace(/[^\x00-\x7F]/g, "");
 
-    return new NextResponse(new Uint8Array(pdfBuffer), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-    });
+    try {
+      const pdfBuffer = await generatePdfFromHtml(htmlContent);
+      return new NextResponse(new Uint8Array(pdfBuffer), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="ArtnaCare_Relatorio_${baseFilename || "relatorio"}.pdf"`,
+        },
+      });
+    } catch (pdfError) {
+      console.warn("PDF não gerado (Puppeteer/Chromium indisponível), retornando HTML:", pdfError);
+      return new NextResponse(htmlContent, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Content-Disposition": `attachment; filename="ArtnaCare_Relatorio_${baseFilename || "relatorio"}.html"`,
+        },
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Erro ao gerar PDF para download:", error);
+    console.error("Erro ao gerar relatório para download:", error);
     return NextResponse.json(
-      { error: "Erro ao gerar PDF", details: message },
+      { error: "Erro ao gerar relatório", details: message },
       { status: 500 }
     );
   }

@@ -9,6 +9,14 @@ import Link from "next/link"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -59,42 +67,62 @@ function translateEmailError(error: string): string {
 }
 
 export default function ReportsPage() {
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null)
   const [reports, setReports] = useState<ReportRecord[]>([])
   const [loadingReports, setLoadingReports] = useState(true)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [massReportModalOpen, setMassReportModalOpen] = useState(false)
+  const [massReportSending, setMassReportSending] = useState(false)
 
   const handleDownloadPdf = async (r: ReportRecord) => {
     if (!r.clientId || !r.period) return
     setDownloadingId(r.id ?? `${r.clientId}-${r.period}`)
+    setMessage(null)
     try {
       const url = `/api/reports/download?clientId=${encodeURIComponent(r.clientId)}&period=${encodeURIComponent(r.period)}`
       const res = await fetch(url)
-      if (!res.ok) throw new Error("Falha ao gerar PDF")
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.details || data.error || "Falha ao gerar relatório")
+      }
+      const contentType = res.headers.get("content-type") ?? ""
       const blob = await res.blob()
       const downloadUrl = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = downloadUrl
-      a.download = `ArtnaCare_Relatorio_${r.clientName.replace(/\s+/g, "_")}_${r.period.replace(/\s+/g, "_")}.pdf`
+      const baseName = `ArtnaCare_Relatorio_${r.clientName.replace(/\s+/g, "_")}_${r.period.replace(/\s+/g, "_")}`
+      if (contentType.includes("text/html")) {
+        a.download = `${baseName}.html`
+        setMessage({
+          type: "info",
+          text: "Relatório baixado em HTML (PDF indisponível). Abra o arquivo no navegador e use Imprimir → Salvar como PDF se precisar.",
+        })
+      } else {
+        a.download = `${baseName}.pdf`
+      }
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(downloadUrl)
-    } catch {
-      setMessage({ type: "error", text: "Não foi possível gerar o PDF. Verifique se o Puppeteer está configurado." })
+    } catch (err) {
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Não foi possível gerar o relatório.",
+      })
     } finally {
       setDownloadingId(null)
     }
   }
 
-  const loadReports = async () => {
+  const loadReports = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch("/api/reports")
+      const res = await fetch("/api/reports", { signal })
       const data = await res.json().catch(() => [])
       setReports(res.ok && Array.isArray(data) ? data : [])
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") return
       setReports([])
     } finally {
       setLoadingReports(false)
@@ -116,8 +144,54 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
-    loadReports()
+    const controller = new AbortController()
+    loadReports(controller.signal)
+    return () => controller.abort()
   }, [])
+
+  const [massReportProgress, setMassReportProgress] = useState<{ processed: number; total: number } | null>(null)
+
+  const handleSendMassReport = async () => {
+    setMassReportSending(true)
+    setMessage(null)
+    setMassReportProgress(null)
+    try {
+      const createRes = await fetch("/api/reports/send-mass", { method: "POST" })
+      const createData = await createRes.json().catch(() => ({}))
+      if (!createRes.ok) throw new Error(createData.details || createData.error || "Falha ao iniciar envio")
+      const jobId = createData.jobId
+      const total = createData.totalClients ?? 0
+      if (total === 0) {
+        setMassReportModalOpen(false)
+        setMessage({ type: "success", text: "Nenhum cliente ativo com e-mail e sites para enviar." })
+        return
+      }
+      setMassReportProgress({ processed: 0, total })
+
+      let done = false
+      while (!done) {
+        const batchRes = await fetch("/api/reports/process-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId }),
+        })
+        const batchData = await batchRes.json().catch(() => ({}))
+        if (!batchRes.ok) throw new Error(batchData.details || batchData.error || "Falha ao processar lote")
+        setMassReportProgress({ processed: batchData.processed ?? 0, total: batchData.total ?? total })
+        done = batchData.done === true
+        if (!done) await new Promise((r) => setTimeout(r, 800))
+      }
+
+      setMassReportModalOpen(false)
+      await loadReports()
+      setMessage({ type: "success", text: `${total} relatório(s) processado(s) e enviado(s) aos clientes.` })
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Não foi possível enviar os relatórios em massa." })
+    } finally {
+      setMassReportSending(false)
+      setMassReportProgress(null)
+    }
+  }
 
   const filteredReports = reports.filter((r) => {
     if (!searchQuery.trim()) return true
@@ -130,25 +204,65 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-bold tracking-tight">Relatórios</h2>
-          <p className="text-muted-foreground">Envie relatórios individualmente pela página de Sites. Edite o modelo aqui.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Envie relatórios pela página de Sites ou em massa. Edite o modelo aqui.</p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/reports/template">
-            <Pencil className="mr-2 h-4 w-4" />
-            Editar modelo do relatório
-          </Link>
-        </Button>
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
+          <Button variant="outline" className="whitespace-nowrap" onClick={() => setMassReportModalOpen(true)}>
+            <Send className="mr-2 h-4 w-4" />
+            Enviar relatório em massa
+          </Button>
+          <Button asChild className="whitespace-nowrap">
+            <Link href="/dashboard/reports/template">
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar modelo do relatório
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {message && (
+      <Dialog open={massReportModalOpen} onOpenChange={setMassReportModalOpen}>
+        <DialogContent className="font-sans">
+          <DialogHeader>
+            <DialogTitle>Enviar relatório em massa</DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>Será gerado e enviado um relatório por e-mail para <strong>todos os clientes ativos</strong> que possuem e-mail cadastrado e ao menos um site.</p>
+              <p className="text-sm">O envio é feito em lotes em segundo plano; com muitos clientes o processo pode levar alguns minutos. Deseja continuar?</p>
+              {massReportProgress && (
+                <p className="text-sm font-medium text-primary pt-2">
+                  Enviando… {massReportProgress.processed}/{massReportProgress.total} clientes
+                </p>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMassReportModalOpen(false)} disabled={massReportSending}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSendMassReport} disabled={massReportSending}>
+              {massReportSending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {massReportProgress ? `${massReportProgress.processed}/${massReportProgress.total}` : "Iniciando…"}
+                </>
+              ) : (
+                "Enviar para todos"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {message && message.text && (
         <div
           className={`rounded-lg border p-4 text-sm ${
             message.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
+              : message.type === "info"
+                ? "border-sky-200 bg-sky-50 text-sky-800"
+                : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
           {message.text}
@@ -269,7 +383,9 @@ export default function ReportsPage() {
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                            r.emailSent ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                            r.emailSent
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-300"
                           }`}
                         >
                           {r.emailSent ? "Enviado" : "Falha no envio"}

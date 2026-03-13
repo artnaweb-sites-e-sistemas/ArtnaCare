@@ -11,8 +11,9 @@ export async function GET() {
     return NextResponse.json(result);
   } catch (error) {
     console.error("UptimeRobot API error:", error);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
     return NextResponse.json(
-      { error: "Failed to fetch UptimeRobot data", monitors: [] },
+      { error: `Falha ao buscar UptimeRobot: ${msg}`, monitors: [] },
       { status: 500 }
     );
   }
