@@ -75,10 +75,14 @@ const filteredSites = sites.filter((site) => {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case "Healthy": return "bg-emerald-100 text-emerald-800"
-      case "Warning": return "bg-amber-100 text-amber-800"
-      case "Critical": return "bg-rose-100 text-rose-800"
-      default: return "bg-slate-100 text-slate-800"
+      case "Healthy":
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300"
+      case "Warning":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-300"
+      case "Critical":
+        return "bg-rose-100 text-rose-800 dark:bg-rose-900/70 dark:text-rose-300"
+      default:
+        return "bg-slate-100 text-slate-800 dark:bg-slate-800/70 dark:text-slate-200"
     }
   }
 

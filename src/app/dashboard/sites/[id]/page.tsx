@@ -556,12 +556,12 @@ export default function SiteDetailPage() {
                       <span
                         className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${
                           log.status === "Healthy"
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300"
                             : log.status === "Warning"
-                              ? "bg-amber-100 text-amber-800"
+                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/70 dark:text-amber-300"
                               : log.status === "Critical" || log.status === "Error"
-                                ? "bg-rose-100 text-rose-800"
-                                : "bg-slate-100 text-slate-800"
+                                ? "bg-rose-100 text-rose-800 dark:bg-rose-900/70 dark:text-rose-300"
+                                : "bg-slate-100 text-slate-800 dark:bg-slate-800/70 dark:text-slate-200"
                         }`}
                       >
                         {log.status === "Healthy"

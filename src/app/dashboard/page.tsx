@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Link2, Loader2, Info, RotateCw, Send, Search, X, Server, User, KeyRound } from "lucide-react"
+import { Play, RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Link2, Loader2, Info, RotateCw, Send, Search, X, Server, User, KeyRound, Globe, Plug } from "lucide-react"
 import { getSites, type Site } from "@/lib/firebase/sites"
 import { getSiteTypeLabel } from "@/lib/site-types"
 import {
@@ -333,6 +333,7 @@ export default function DashboardPage() {
   const [singleSiteCheckingId, setSingleSiteCheckingId] = useState<string | null>(null)
   const [sendingReportClientId, setSendingReportClientId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "healthy" | "warning" | "critical">("all")
   const [reportConfirm, setReportConfirm] = useState<{
     open: boolean
     clientId: string | null
@@ -501,13 +502,10 @@ export default function DashboardPage() {
     displayLogs = [newLog, ...displayLogs]
   }
 
+  const totalCount = artnaSites.length
   const healthyCount = displayLogs.filter((l) => l.status === "Healthy").length
   const warningCount = displayLogs.filter((l) => l.status === "Warning").length
   const criticalCount = displayLogs.filter((l) => l.status === "Critical").length
-  const lastCheckParts =
-    displayLogs.length > 0 && displayLogs[0]?.checkedAt
-      ? getCheckedAtParts(displayLogs[0].checkedAt)
-      : null
 
   const statusLabel = (status: number) => {
     switch (status) {
@@ -556,15 +554,41 @@ export default function DashboardPage() {
   Array.from(logsBySiteUrl.values()).forEach((arr) => arr.sort((a, b) => (parseCheckedAt(b.checkedAt)?.getTime() ?? 0) - (parseCheckedAt(a.checkedAt)?.getTime() ?? 0)))
 
   const filteredArtnaSites = artnaSites.filter((site) => {
+    const siteUrlNorm = normalizeUrl(site.url)
+    const log = displayLogs.find((l) => normalizeUrl(l.siteUrl) === siteUrlNorm)
+    const monitor = monitorsByUrl.get(siteUrlNorm)
+
+    const matchesStatusFilter =
+      statusFilter === "all" ||
+      (statusFilter === "healthy" && log?.status === "Healthy") ||
+      (statusFilter === "warning" && log?.status === "Warning") ||
+      (statusFilter === "critical" && log?.status === "Critical")
+
+    if (!matchesStatusFilter) return false
+
     if (!searchQuery.trim()) return true
     const q = searchQuery.trim().toLowerCase()
     const name = (site.name || "").toLowerCase()
     const url = (site.url || "").toLowerCase()
-    const siteUrlNorm = normalizeUrl(site.url)
-    const log = displayLogs.find((l) => normalizeUrl(l.siteUrl) === siteUrlNorm)
-    const monitor = monitorsByUrl.get(siteUrlNorm)
-    const logStatus = log?.status === "Healthy" ? "saudável" : log?.status === "Warning" ? "aviso" : log?.status === "Critical" ? "crítico" : !log ? "pendente" : (log?.status || "").toLowerCase()
-    const uptimeStatus = monitor?.status === 2 ? "online" : monitor?.status === 9 ? "offline" : monitor?.status === 1 ? "preparando" : "não sincronizado"
+    const logStatus =
+      log?.status === "Healthy"
+        ? "saudável"
+        : log?.status === "Warning"
+          ? "aviso"
+          : log?.status === "Critical"
+            ? "crítico"
+            : !log
+              ? "pendente"
+              : (log?.status || "").toLowerCase()
+    const uptimeStatus =
+      monitor?.status === 2
+        ? "online"
+        : monitor?.status === 9
+          ? "offline"
+          : monitor?.status === 1
+            ? "preparando"
+            : "não sincronizado"
+
     return name.includes(q) || url.includes(q) || logStatus.includes(q) || uptimeStatus.includes(q)
   })
   const unsyncedSites = artnaSites.filter(
@@ -681,7 +705,30 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="py-3">
+        <Card
+          className={`py-3 cursor-pointer transition border ${
+            statusFilter === "all"
+              ? "border-emerald-500/70 bg-emerald-500/5"
+              : "border-transparent hover:border-emerald-500/60"
+          }`}
+          onClick={() => setStatusFilter("all")}
+        >
+          <CardContent className="py-3 px-4 flex items-center gap-3">
+            <Globe className="h-8 w-8 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-2xl font-bold">{logsLoading ? "—" : totalCount}</p>
+              <p className="text-xs text-muted-foreground">Total de sites</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={`py-3 cursor-pointer transition border ${
+            statusFilter === "healthy"
+              ? "border-emerald-500/70 bg-emerald-500/5"
+              : "border-transparent hover:border-emerald-500/60"
+          }`}
+          onClick={() => setStatusFilter("healthy")}
+        >
           <CardContent className="py-3 px-4 flex items-center gap-3">
             <CheckCircle className="h-8 w-8 text-green-500 shrink-0" />
             <div>
@@ -690,7 +737,14 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="py-3">
+        <Card
+          className={`py-3 cursor-pointer transition border ${
+            statusFilter === "warning"
+              ? "border-amber-500/70 bg-amber-500/5"
+              : "border-transparent hover:border-amber-500/60"
+          }`}
+          onClick={() => setStatusFilter("warning")}
+        >
           <CardContent className="py-3 px-4 flex items-center gap-3">
             <AlertTriangle className="h-8 w-8 text-yellow-500 shrink-0" />
             <div>
@@ -699,28 +753,19 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="py-3">
+        <Card
+          className={`py-3 cursor-pointer transition border ${
+            statusFilter === "critical"
+              ? "border-rose-500/70 bg-rose-500/5"
+              : "border-transparent hover:border-rose-500/60"
+          }`}
+          onClick={() => setStatusFilter("critical")}
+        >
           <CardContent className="py-3 px-4 flex items-center gap-3">
             <XCircle className="h-8 w-8 text-red-500 shrink-0" />
             <div>
               <p className="text-2xl font-bold">{logsLoading ? "—" : criticalCount}</p>
               <p className="text-xs text-muted-foreground">Críticos</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="py-3">
-          <CardContent className="py-3 px-4 flex items-center gap-3">
-            <Clock className="h-8 w-8 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-2xl font-bold">
-                {logsLoading ? "—" : lastCheckParts ? (
-                  <>
-                    {lastCheckParts.dateStr},{" "}
-                    <span className="text-base font-normal">{lastCheckParts.timeStr}h</span>
-                  </>
-                ) : displayLogs.length > 0 ? "Agora" : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">Última verificação</p>
             </div>
           </CardContent>
         </Card>
@@ -823,6 +868,8 @@ export default function DashboardPage() {
                     (site.id != null && sitesInPreparing.has(site.id) && !monitor) ||
                     (monitor?.status === 1)
                   const uptimeDisplayStatus = isPreparing ? 1 : monitor?.status ?? null
+                  const hasPluginsIssue =
+                    log?.issues?.some((issue) => issue.toLowerCase().includes("plugin")) ?? false
                   return (
                     <TableRow key={site.id}>
                       <TableCell>
@@ -886,6 +933,9 @@ export default function DashboardPage() {
                                           ? "Erro"
                                           : log.status}
                                     <Info className="h-3.5 w-3.5" />
+                                    {log.status === "Warning" && hasPluginsIssue && (
+                                      <Plug className="h-3.5 w-3.5 text-amber-700 dark:text-amber-200" />
+                                    )}
                                   </span>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-72 sm:w-80" align="start">

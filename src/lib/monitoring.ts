@@ -34,22 +34,28 @@ export async function checkHttp(url: string): Promise<{ ok: boolean; responseTim
 }
 
 /**
- * Check SSL certificate validity (basic).
- * For a full check you'd need a server-side library; this stub checks the URL scheme.
+ * Check SSL certificate validity (básico).
+ *
+ * Regra desejada:
+ * - Se o site responder em HTTPS, considerar SSL válido (mesmo que no cadastro esteja com http://).
+ * - Só marcar como inválido quando a tentativa em https://host falhar (sem SSL ou erro de conexão).
  */
 export async function checkSsl(url: string): Promise<{ valid: boolean | null; expiryDays: number | null }> {
   try {
-    const urlObj = new URL(url);
-    if (urlObj.protocol !== "https:") {
-      return { valid: false, expiryDays: null };
-    }
-    // Basic check: if we can fetch via HTTPS without error, SSL is valid
+    // Garante que sempre testamos em HTTPS, independente de como a URL foi cadastrada.
+    const original = url.startsWith("http") ? url : `https://${url}`;
+    const urlObj = new URL(original);
+    urlObj.protocol = "https:";
+    const httpsUrl = urlObj.href;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-    await fetch(url, { method: "HEAD", signal: controller.signal });
+    // Se conseguimos fazer HEAD em HTTPS sem erro, tratamos como certificado válido.
+    await fetch(httpsUrl, { method: "HEAD", signal: controller.signal });
     clearTimeout(timeoutId);
     return { valid: true, expiryDays: null }; // Expiry details need server-side cert inspection
   } catch {
+    // Falha ao acessar via HTTPS: ou não há SSL ou há algum problema com o certificado.
     return { valid: false, expiryDays: null };
   }
 }

@@ -126,4 +126,18 @@
   html {
     @apply font-sans;
   }
+
+  /* Remove ícone nativo de limpar em inputs type="search"
+     (Edge/Chrome/Safari), já que usamos nosso próprio botão "X". */
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+  }
+  input[type="search"]::-ms-clear {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
