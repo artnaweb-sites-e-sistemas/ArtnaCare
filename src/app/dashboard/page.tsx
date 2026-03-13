@@ -95,10 +95,11 @@ function buildServerLoginUrl(site: Site): string {
   }
 }
 
-// Caminho dos ícones em @public/icon (SVG/PNG reais das logos).
 function getSiteTypeIconPath(siteType?: string | null): string | null {
   if (!siteType) return null
   const t = siteType.toLowerCase()
+  if (t.includes("next")) return "/icon/Next.png"
+  if (t.includes("react")) return "/icon/react.png"
   if (t.includes("wordpress")) return "/icon/wordpress.png"
   if (t.includes("html")) return "/icon/html 5.svg"
   if (t.includes("woocommerce")) return "/icon/woocommerce.png"
@@ -401,8 +402,23 @@ export default function DashboardPage() {
   const handleRunChecks = async () => {
     setRunning(true)
     try {
-      const res = await fetch("/api/cron/monitoring", { method: "POST" })
+      const res = await fetch("/api/cron/monitoring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ background: true }),
+      })
       const data = await res.json().catch(() => ({}))
+      if (res.status === 202 && data.background) {
+        toast.success(
+          "Verificações iniciadas em segundo plano. Pode sair ou atualizar a página; os resultados serão salvos automaticamente.",
+          { duration: 8000 }
+        )
+        setRunning(false)
+        loadMonitoringLogs()
+        setTimeout(loadMonitoringLogs, 5000)
+        setTimeout(loadMonitoringLogs, 15000)
+        return
+      }
       if (!res.ok) throw new Error(data.error || "Check failed")
       if (data.results?.length === 0 && data.message?.includes("No sites")) {
         setResultModal({
@@ -995,22 +1011,71 @@ export default function DashboardPage() {
                             const displayType = log?.siteType ?? site.type ?? "—"
                             const isWordPress = String(displayType).toLowerCase().includes("wordpress")
                             if (isWordPress && (site.wpAdminUrl || site.url)) {
+                              const wpLoginUrl =
+                                site.wpAdminUrl?.trim() ||
+                                (() => {
+                                  try {
+                                    const u = new URL(site.url.startsWith("http") ? site.url : "https://" + site.url)
+                                    return u.origin + "/wp-login.php"
+                                  } catch {
+                                    return "#"
+                                  }
+                                })()
+                              const hasWpUser = !!site.wpAdminUser?.trim()
+                              const hasWpLoginPassword = !!site.wpLoginPassword?.trim()
+
                               return (
-                                <a
-                                  href={site.wpAdminUrl?.trim() || (() => {
-                                    try {
-                                      const u = new URL(site.url.startsWith("http") ? site.url : "https://" + site.url)
-                                      return u.origin + "/wp-login.php"
-                                    } catch {
-                                      return "#"
-                                    }
-                                  })()}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline"
-                                >
-                                  {getSiteTypeLabel(displayType)}
-                                </a>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                    >
+                                      {getSiteTypeLabel(displayType)}
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="start"
+                                    className="w-60 rounded-xl border border-border/80 bg-popover p-1.5 font-sans text-popover-foreground shadow-lg ring-1 ring-black/5 dark:ring-white/10"
+                                  >
+                                    <DropdownMenuItem
+                                      className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-sans focus:bg-accent focus:text-accent-foreground"
+                                      onClick={() => window.open(wpLoginUrl, "_blank", "noopener,noreferrer")}
+                                    >
+                                      <Link2 className="mr-2.5 h-4 w-4 shrink-0 opacity-70" />
+                                      Abrir painel WordPress
+                                    </DropdownMenuItem>
+                                    {hasWpUser && (
+                                      <DropdownMenuItem
+                                        className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-sans focus:bg-accent focus:text-accent-foreground"
+                                        onClick={() => {
+                                          void navigator.clipboard.writeText(site.wpAdminUser ?? "")
+                                          toast.success("Usuário WP copiado")
+                                        }}
+                                      >
+                                        <User className="mr-2.5 h-4 w-4 shrink-0 opacity-70" />
+                                        Copiar usuário WP
+                                      </DropdownMenuItem>
+                                    )}
+                                    {hasWpLoginPassword && (
+                                      <DropdownMenuItem
+                                        className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-sans focus:bg-accent focus:text-accent-foreground"
+                                        onClick={() => {
+                                          void navigator.clipboard.writeText(site.wpLoginPassword ?? "")
+                                          toast.success("Senha WP copiada")
+                                        }}
+                                      >
+                                        <KeyRound className="mr-2.5 h-4 w-4 shrink-0 opacity-70" />
+                                        Copiar senha WP
+                                      </DropdownMenuItem>
+                                    )}
+                                    {!hasWpUser && !hasWpLoginPassword && (
+                                      <p className="px-3 py-2 text-xs text-muted-foreground">
+                                        Configure login e senha.
+                                      </p>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               )
                             }
                             return (

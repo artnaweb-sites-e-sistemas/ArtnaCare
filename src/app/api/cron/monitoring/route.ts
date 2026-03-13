@@ -4,20 +4,151 @@ import { getSitesAdmin, updateSiteAdmin, addMonitoringLogAdmin } from "@/lib/fir
 import { runAllChecks } from "@/lib/monitoring";
 import { calculateStatus } from "@/lib/status-calculator";
 
+type SiteForMonitoring = Awaited<ReturnType<typeof getSitesAdmin>>[number];
+
+/** Runs monitoring checks for the given sites; updates Firestore. Used for both sync and background run. */
+async function runMonitoringChecks(
+  sites: SiteForMonitoring[]
+): Promise<{ message: string; results: unknown[] }> {
+  const results: unknown[] = [];
+
+  for (const site of sites) {
+    const siteUrl = typeof site.url === "string" ? site.url.trim() : "";
+    const siteType = site.type === "WordPress" || site.type === "Static" || site.type === "Other" ? site.type : "Other";
+
+    if (!siteUrl) {
+      const msg = "URL do site não informada. Edite o site e preencha a URL.";
+      console.error(`Site ${site.name} (${site.id}): ${msg}`);
+      try {
+        await updateSiteAdmin(site.id!, { status: "Critical", issues: [msg] });
+        await addMonitoringLogAdmin({
+          siteId: site.id,
+          siteName: site.name,
+          siteUrl: site.url || "",
+          status: "Error",
+          issues: [msg],
+          httpOk: false,
+        });
+      } catch (e) {
+        console.error("Error updating site after missing URL:", e);
+      }
+      results.push({
+        siteId: site.id,
+        name: site.name,
+        url: site.url ?? "",
+        status: "Error",
+        issues: [msg],
+        responseTimeMs: null,
+        sslValid: null,
+        wpVersion: null,
+        siteType: null,
+      });
+      continue;
+    }
+
+    try {
+      const monitoringResult = await runAllChecks(siteUrl, siteType, {
+        wpUser: site.wpAdminUser,
+        wpApplicationPassword: site.wpAdminPassword,
+      });
+      const statusResult = calculateStatus(monitoringResult);
+
+      await updateSiteAdmin(site.id!, {
+        status: statusResult.status,
+        issues: statusResult.issues,
+        sslValid: monitoringResult.sslValid ?? undefined,
+        responseTime: monitoringResult.responseTimeMs ?? undefined,
+        wpVersion: monitoringResult.wpVersion ?? undefined,
+      });
+
+      await addMonitoringLogAdmin({
+        siteId: site.id,
+        siteName: site.name,
+        siteUrl: site.url,
+        status: statusResult.status,
+        issues: statusResult.issues,
+        httpOk: monitoringResult.httpOk,
+        responseTimeMs: monitoringResult.responseTimeMs ?? undefined,
+        sslValid: monitoringResult.sslValid,
+        sslExpiryDays: monitoringResult.sslExpiryDays ?? undefined,
+        wpVersion: monitoringResult.wpVersion ?? undefined,
+        siteType: monitoringResult.siteType ?? undefined,
+        malwareDetected: monitoringResult.malwareDetected,
+        performanceScore: monitoringResult.performanceScore ?? undefined,
+      });
+
+      results.push({
+        siteId: site.id,
+        name: site.name,
+        url: site.url,
+        status: statusResult.status,
+        issues: statusResult.issues,
+        responseTimeMs: monitoringResult.responseTimeMs ?? null,
+        sslValid: monitoringResult.sslValid ?? null,
+        wpVersion: monitoringResult.wpVersion ?? null,
+        siteType: monitoringResult.siteType ?? null,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const issues = [`Falha na verificação de monitoramento: ${errorMessage}`];
+      console.error(`Error checking site ${site.name}:`, error);
+      try {
+        await updateSiteAdmin(site.id!, {
+          status: "Critical",
+          issues,
+        });
+        await addMonitoringLogAdmin({
+          siteId: site.id,
+          siteName: site.name,
+          siteUrl: site.url,
+          status: "Error",
+          issues,
+          httpOk: false,
+        });
+      } catch (e) {
+        console.error("Error updating site after check failure:", e);
+      }
+      results.push({
+        siteId: site.id,
+        name: site.name,
+        url: site.url,
+        status: "Error",
+        issues,
+        responseTimeMs: null,
+        sslValid: null,
+        wpVersion: null,
+        siteType: null,
+      });
+    }
+  }
+
+  return {
+    message: `Monitoring complete. Checked ${results.length} site(s).`,
+    results,
+  };
+}
+
+/** Vercel extends Request with waitUntil so the invocation continues after response is sent. */
+function getWaitUntil(req: Request): ((promise: Promise<unknown>) => void) | undefined {
+  return (req as Request & { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil;
+}
+
 /**
  * POST /api/cron/monitoring
  * Runs monitoring checks on all registered sites (or a single site if siteId in body).
+ * Body: { siteId?: string, background?: boolean }
+ * - background: true = return 202 immediately and run checks in background (safe to leave/refresh page).
  * Uses Firebase Admin SDK (works on Vercel serverless without user auth).
  */
 export async function POST(request: Request) {
   try {
-    let body: { siteId?: string } = {};
+    let body: { siteId?: string; background?: boolean } = {};
     try {
       body = await request.json().catch(() => ({}));
     } catch {
       // ignore
     }
-    const siteId = body.siteId;
+    const { siteId, background } = body;
 
     const allSites = await getSitesAdmin();
     const sites = siteId
@@ -28,122 +159,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "No sites to monitor", results: [] });
     }
 
-    const results = [];
+    const waitUntil = getWaitUntil(request);
 
-    for (const site of sites) {
-      const siteUrl = typeof site.url === "string" ? site.url.trim() : "";
-      const siteType = site.type === "WordPress" || site.type === "Static" || site.type === "Other" ? site.type : "Other";
-
-      if (!siteUrl) {
-        const msg = "URL do site não informada. Edite o site e preencha a URL.";
-        console.error(`Site ${site.name} (${site.id}): ${msg}`);
-        try {
-          await updateSiteAdmin(site.id!, { status: "Critical", issues: [msg] });
-          await addMonitoringLogAdmin({
-            siteId: site.id,
-            siteName: site.name,
-            siteUrl: site.url || "",
-            status: "Error",
-            issues: [msg],
-            httpOk: false,
-          });
-        } catch (e) {
-          console.error("Error updating site after missing URL:", e);
-        }
-        results.push({
-          siteId: site.id,
-          name: site.name,
-          url: site.url ?? "",
-          status: "Error",
-          issues: [msg],
-          responseTimeMs: null,
-          sslValid: null,
-          wpVersion: null,
-          siteType: null,
-        });
-        continue;
-      }
-
-      try {
-        const monitoringResult = await runAllChecks(siteUrl, siteType, {
-          wpUser: site.wpAdminUser,
-          wpApplicationPassword: site.wpAdminPassword,
-        });
-        const statusResult = calculateStatus(monitoringResult);
-
-        await updateSiteAdmin(site.id!, {
-          status: statusResult.status,
-          issues: statusResult.issues,
-          sslValid: monitoringResult.sslValid ?? undefined,
-          responseTime: monitoringResult.responseTimeMs ?? undefined,
-          wpVersion: monitoringResult.wpVersion ?? undefined,
-        });
-
-        await addMonitoringLogAdmin({
-          siteId: site.id,
-          siteName: site.name,
-          siteUrl: site.url,
-          status: statusResult.status,
-          issues: statusResult.issues,
-          httpOk: monitoringResult.httpOk,
-          responseTimeMs: monitoringResult.responseTimeMs ?? undefined,
-          sslValid: monitoringResult.sslValid,
-          sslExpiryDays: monitoringResult.sslExpiryDays ?? undefined,
-          wpVersion: monitoringResult.wpVersion ?? undefined,
-          siteType: monitoringResult.siteType ?? undefined,
-          malwareDetected: monitoringResult.malwareDetected,
-          performanceScore: monitoringResult.performanceScore ?? undefined,
-        });
-
-        results.push({
-          siteId: site.id,
-          name: site.name,
-          url: site.url,
-          status: statusResult.status,
-          issues: statusResult.issues,
-          responseTimeMs: monitoringResult.responseTimeMs ?? null,
-          sslValid: monitoringResult.sslValid ?? null,
-          wpVersion: monitoringResult.wpVersion ?? null,
-          siteType: monitoringResult.siteType ?? null,
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const issues = [`Falha na verificação de monitoramento: ${errorMessage}`];
-        console.error(`Error checking site ${site.name}:`, error);
-        try {
-          await updateSiteAdmin(site.id!, {
-            status: "Critical",
-            issues,
-          });
-          await addMonitoringLogAdmin({
-            siteId: site.id,
-            siteName: site.name,
-            siteUrl: site.url,
-            status: "Error",
-            issues,
-            httpOk: false,
-          });
-        } catch (e) {
-          console.error("Error updating site after check failure:", e);
-        }
-        results.push({
-          siteId: site.id,
-          name: site.name,
-          url: site.url,
-          status: "Error",
-          issues,
-          responseTimeMs: null,
-          sslValid: null,
-          wpVersion: null,
-          siteType: null,
-        });
-      }
+    if (background && waitUntil) {
+      waitUntil(
+        runMonitoringChecks(sites).then((out) => {
+          console.log("[monitoring] background run finished:", out.message);
+        })
+      );
+      return NextResponse.json(
+        {
+          message: "Verificações iniciadas em segundo plano. Pode sair da página; os resultados serão salvos no Firestore.",
+          background: true,
+        },
+        { status: 202 }
+      );
     }
 
-    return NextResponse.json({
-      message: `Monitoring complete. Checked ${results.length} site(s).`,
-      results,
-    });
+    const { message, results } = await runMonitoringChecks(sites);
+    return NextResponse.json({ message, results });
   } catch (error) {
     console.error("Monitoring CRON error:", error);
     return NextResponse.json(

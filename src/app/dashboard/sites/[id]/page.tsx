@@ -15,6 +15,13 @@ import { getSiteTypeLabel } from "@/lib/site-types"
 import { getMaintenanceLogs, addMaintenanceLog, deleteMaintenanceLog, MaintenanceEntry } from "@/lib/firebase/maintenance"
 import { useAuth } from "@/hooks/useAuth"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 
 const MAINTENANCE_TYPES: { value: MaintenanceEntry["type"]; label: string }[] = [
@@ -623,16 +630,21 @@ export default function SiteDetailPage() {
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="maintenance-type">Tipo</Label>
-                <select
-                  id="maintenance-type"
+                <Select
                   value={maintenanceForm.type}
-                  onChange={(e) => setMaintenanceForm((prev) => ({ ...prev, type: e.target.value as MaintenanceEntry["type"] }))}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  onValueChange={(value) => setMaintenanceForm((prev) => ({ ...prev, type: value as MaintenanceEntry["type"] }))}
                 >
-                  {MAINTENANCE_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger id="maintenance-type" className="h-9 w-full">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MAINTENANCE_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="maintenance-desc">Descrição</Label>
